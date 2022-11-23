@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link href="/lib/pace/pace-theme-flash.min.css?v=1.0.2" rel="stylesheet">
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="Objective-C,">
+
+
+
+
+
+
+
+
+
+
+<meta name="description" content="通过clang分析Block是如何实现的。">
+<meta name="keywords" content="Objective-C">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Block原理">
+<meta property="og:url" content="http://www.neroxie.com/2018/09/05/Blocks原理/index.html">
+<meta property="og:site_name" content="NeroXie的个人博客">
+<meta property="og:description" content="通过clang分析Block是如何实现的。">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/%E8%AE%BF%E9%97%AE__block%E5%8F%98%E9%87%8F.jpg">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/block%E7%B1%BB%E5%9E%8B.jpg">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/%E6%A0%88%E4%B8%8A%E7%9A%84block.png">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/block%E6%8B%B7%E8%B4%9D.png">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/sunnyxx_block.png">
+<meta property="og:updated_time" content="2022-11-23T20:14:09.305Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Block原理">
+<meta name="twitter:description" content="通过clang分析Block是如何实现的。">
+<meta name="twitter:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/%E8%AE%BF%E9%97%AE__block%E5%8F%98%E9%87%8F.jpg">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://www.neroxie.com/2018/09/05/Blocks原理/">
+
+
+
+
+
+  <title>Block原理 | NeroXie的个人博客</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+    <a href="https://github.com/YiHuaXie" class="github-corner" aria-label="View source on GitHub"><svg width="80" height="80" viewbox="0 0 250 250" style="fill:#151513; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg></a><style>.github-corner:hover .octo-arm{animation:octocat-wave 560ms ease-in-out}@keyframes octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}@media (max-width:500px){.github-corner:hover .octo-arm{animation:none}.github-corner .octo-arm{animation:octocat-wave 560ms ease-in-out}}</style>
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta custom-logo">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">NeroXie的个人博客</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://www.neroxie.com/2018/09/05/Blocks原理/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="NeroXie">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="https://avatars1.githubusercontent.com/u/17306472?s=460&v=4F">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="NeroXie的个人博客">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">Block原理</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-09-05T15:03:58+00:00">
+                2018-09-05
+              </time>
+            
+
+            
+              <span class="post-meta-divider">|</span>
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-check-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">更新于&#58;</span>
+              
+              <time title="更新于" itemprop="dateModified" datetime="2022-11-23T20:14:09+00:00">
+                2022-11-23
+              </time>
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/OC对象内存/" itemprop="url" rel="index">
+                    <span itemprop="name">OC对象内存</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+            <div class="post-wordcount">
+              
+                
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">字数统计&#58;</span>
+                
+                <span title="字数统计">
+                  4.7k
+                </span>
+              
+
+              
+
+              
+            </div>
+          
+
+          
+              <div class="post-description">
+                  通过clang分析Block是如何实现的。
+              </div>
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>更新日期：2019-07-22</p>
+<h2 id="Block的实质"><a href="#Block的实质" class="headerlink" title="Block的实质"></a>Block的实质</h2><p>我们先写一个最基础的block</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">int main(int argc, const char * argv[]) &#123;</span><br><span class="line">    void (^testBlock)(void) = ^&#123;</span><br><span class="line">        printf(&quot;asddasd&quot;);</span><br><span class="line">    &#125;;</span><br><span class="line">    testBlock();</span><br><span class="line">    </span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>使用<code>xcrun -sdk iphoneos clang -arch arm64 -rewrite-objc main.m</code>转化成C++代码。其中有关键代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">int main(int argc, char * argv[]) &#123;</span><br><span class="line">    void (*testBlock)(void) = ((void (*)())&amp;__main_block_impl_0((void *)__main_block_func_0, &amp;__main_block_desc_0_DATA));</span><br><span class="line"></span><br><span class="line">    ((void (*)(__block_impl *))((__block_impl *)testBlock)-&gt;FuncPtr)((__block_impl *)testBlock);</span><br><span class="line">    </span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>将代码简化一下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">int main(int argc, char * argv[]) &#123;</span><br><span class="line">    // 定义block变量</span><br><span class="line">    void (*testBlock)(void) = &amp;__main_block_impl_0(__main_block_func_0, &amp;__main_block_desc_0_DATA);</span><br><span class="line">    </span><br><span class="line">    // 执行block</span><br><span class="line">    testBlock-&gt;FuncPtr(testBlock);</span><br><span class="line">    </span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看出我们定义的<code>testBlock</code>变成了<code>&amp;__main_block_impl_0(__main_block_func_0, &amp;__main_block_desc_0_DATA)</code>，执行block的时候将<code>testBlock()</code>变成了<code>testBlock-&gt;FuncPtr(testBlock)</code></p>
+<p><code>__main_block_impl_0</code>是一个结构体，相关定义如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">struct __block_impl &#123;</span><br><span class="line">    void *isa; // isa是OC对象特有的标志</span><br><span class="line">    int Flags;</span><br><span class="line">    int Reserved;</span><br><span class="line">    void *FuncPtr; // 该指针指向block执行函数的地址</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">static struct __main_block_desc_0 &#123;</span><br><span class="line">    size_t reserved;   // 预留的字段</span><br><span class="line">    size_t Block_size; // block所占内存大小</span><br><span class="line">&#125; __main_block_desc_0_DATA = &#123; 0, sizeof(struct __main_block_impl_0)&#125;;</span><br><span class="line"></span><br><span class="line">// __main_block_impl_0是一个C++结构体可以声明函数</span><br><span class="line">struct __main_block_impl_0 &#123;</span><br><span class="line">    struct __block_impl impl;</span><br><span class="line">    struct __main_block_desc_0* Desc;</span><br><span class="line">    // 没有返回类型，与结构体同名的函数，这样的函数称为构造函数</span><br><span class="line">    __main_block_impl_0(void *fp, struct __main_block_desc_0 *desc, int flags=0) &#123;</span><br><span class="line">        impl.isa = &amp;_NSConcreteStackBlock; // 初始化__block_impl结构体的isa成员变量</span><br><span class="line">        impl.Flags = flags;</span><br><span class="line">        impl.FuncPtr = fp; // fp就是__main_block_func_0函数</span><br><span class="line">        Desc = desc;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">// 该函数封装了block的执行代码</span><br><span class="line">static void __main_block_func_0(struct __main_block_impl_0 *__cself) &#123;</span><br><span class="line">    printf(&quot;asddasd&quot;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>__main_block_impl_0</code>有两个成员变量，分别是<code>__block_impl impl</code>和<code>__main_block_desc_0* Desc</code>，还有一个<code>__main_block_impl_0</code>的构造函数。<code>__block_impl</code>和<code>__main_block_desc_0</code>也是两个结构体，其成员变量作用都写在代码注释中，这里就不再说了。</p>
+<p>最重要的是其构造函数：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">__main_block_impl_0(void *fp, struct __main_block_desc_0 *desc, int flags=0) &#123;</span><br><span class="line">    impl.isa = &amp;_NSConcreteStackBlock;</span><br><span class="line">    impl.Flags = flags;</span><br><span class="line">    impl.FuncPtr = fp;</span><br><span class="line">    Desc = desc;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在定义block变量的时候，传入的<code>__main_block_func_0</code>和<code>&amp;__main_block_desc_0_DATA</code>分别对应了<code>fp</code>和<code>* desc</code>。<code>fp</code>指向的就是<code>__main_block_func_0</code>函数，它会传给<code>impl.FuncPtr</code>，另外的<code>isa</code>的初始值是<code>_NSConcreteStackBlock</code>，<code>_NSConcreteStackBlock</code>就相当于<code>class_t</code>中的结构体类型的。</p>
+<p>接着看调用部分，关于block的调用会被转化成<code>testBlock-&gt;FuncPtr(testBlock)</code>，它指向的是<code>__main_block_func_0</code>函数的地址。这里要注意<code>testBlock-&gt;FuncPtr(testBlock)</code>是我将强制转化取消后的代码，原本应该是<code>(__block_impl *)testBlock-&gt;FuncPtr(testBlock)</code>，因为<code>__block_impl imp</code>是<code>__main_block_impl_0</code>这个结构体的第一个成员变量，所以<code>__block_impl imp</code>的内存地址就是<code>__main_block_impl_0</code>结构体的内存地址。</p>
+<p>所以说<strong>block的本质就是Objective-C对象，block的调用就是函数指针的调用</strong>。</p>
+<h2 id="截获自动变量值"><a href="#截获自动变量值" class="headerlink" title="截获自动变量值"></a>截获自动变量值</h2><p>根据《Objective-C高级编程》一书中提到，所谓的“截获自动变量值”意味着在执行Block语法时，Block语法表达式所使用的自动变量被保存到Block的结构体实例（即Block自身中）。</p>
+<p>那不同类型变量之间的截获会有区别吗，使用以下代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;stdio.h&gt;</span><br><span class="line"></span><br><span class="line">static int globalStaticValue = 1;</span><br><span class="line"></span><br><span class="line">int globalValue = 2;</span><br><span class="line"></span><br><span class="line">int main(int argc, char * argv[]) &#123;</span><br><span class="line">    int a = 3;</span><br><span class="line">    </span><br><span class="line">    static int b = 4;</span><br><span class="line">    </span><br><span class="line">    void (^testBlock)(void) = ^&#123;</span><br><span class="line">        printf(&quot;%d&quot;, globalStaticValue);</span><br><span class="line">        printf(&quot;%d&quot;, globalValue);</span><br><span class="line">        printf(&quot;%d&quot;, a);</span><br><span class="line">        printf(&quot;%d&quot;, b);</span><br><span class="line">    &#125;;</span><br><span class="line">    </span><br><span class="line">    testBlock();</span><br><span class="line">    </span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>转化成C++代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line">static int globalStaticValue = 1;</span><br><span class="line">int globalValue = 2;</span><br><span class="line"></span><br><span class="line">struct __main_block_impl_0 &#123;</span><br><span class="line">    struct __block_impl impl;</span><br><span class="line">    struct __main_block_desc_0* Desc;</span><br><span class="line">    int a;</span><br><span class="line">    int *b;</span><br><span class="line">    __main_block_impl_0(void *fp, struct __main_block_desc_0 *desc, int _a, int *_b, int flags=0) : a(_a), b(_b) &#123;</span><br><span class="line">        impl.isa = &amp;_NSConcreteStackBlock;</span><br><span class="line">        impl.Flags = flags;</span><br><span class="line">        impl.FuncPtr = fp;</span><br><span class="line">        Desc = desc;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">static void __main_block_func_0(struct __main_block_impl_0 *__cself) &#123;</span><br><span class="line">    int a = __cself-&gt;a; // bound by copy</span><br><span class="line">    int *b = __cself-&gt;b; // bound by copy</span><br><span class="line">    </span><br><span class="line">    printf(&quot;%d&quot;, globalStaticValue);</span><br><span class="line">    printf(&quot;%d&quot;, globalValue);</span><br><span class="line">    printf(&quot;%d&quot;, a);</span><br><span class="line">    printf(&quot;%d&quot;, (*b));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">static struct __main_block_desc_0 &#123;</span><br><span class="line">    size_t reserved;</span><br><span class="line">    size_t Block_size;</span><br><span class="line">&#125; __main_block_desc_0_DATA = &#123; 0, sizeof(struct __main_block_impl_0)&#125;;</span><br><span class="line"></span><br><span class="line">int main(int argc, char * argv[]) &#123;</span><br><span class="line">    int a = 3;</span><br><span class="line">    </span><br><span class="line">    static int b = 4;</span><br><span class="line">    </span><br><span class="line">    void (*testBlock)(void) = ((void (*)())&amp;__main_block_impl_0((void *)__main_block_func_0, &amp;__main_block_desc_0_DATA, a, &amp;b));</span><br><span class="line">    </span><br><span class="line">    ((void (*)(__block_impl *))((__block_impl *)testBlock)-&gt;FuncPtr)((__block_impl *)testBlock);</span><br><span class="line">    </span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>从上面的代码可以看出：</p>
+<ul>
+<li><strong>局部变量会被block直接截获</strong>；</li>
+<li><strong>局部静态变量会被block直接截获其指针，通过指针进行方法</strong>；</li>
+<li><strong>全局变量和全局静态变量并不会被截获，而是直接使用</strong>；</li>
+</ul>
+<h2 id="截获对象"><a href="#截获对象" class="headerlink" title="截获对象"></a>截获对象</h2><p>block是如何截获对象变量的，使用如下代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">#import &lt;Foundation/Foundation.h&gt;</span><br><span class="line"></span><br><span class="line">static NSObject *globalObjc;</span><br><span class="line"></span><br><span class="line">int main(int argc, char * argv[]) &#123;    </span><br><span class="line">    NSObject *object = [[NSObject alloc] init];</span><br><span class="line">    __weak NSObject *weakObject = object;</span><br><span class="line">    </span><br><span class="line">    void (^testBlock)(void) = ^&#123;</span><br><span class="line">        NSLog(@&quot;%@&quot;, object);</span><br><span class="line">        NSLog(@&quot;%@&quot;, weakObject);</span><br><span class="line">        NSLog(@&quot;%@&quot;, globalObjc);</span><br><span class="line">    &#125;;</span><br><span class="line">    </span><br><span class="line">    testBlock();</span><br><span class="line">    </span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>使用<code>xcrun -sdk iphoneos clang -arch arm64 -rewrite-objc -fobjc-arc -fobjc-runtime=ios-8.0.0 main.m</code>命令，转化成C++代码后：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line">static NSObject *globalObjc;</span><br><span class="line"></span><br><span class="line">struct __main_block_impl_0 &#123;</span><br><span class="line">    struct __block_impl impl;</span><br><span class="line">    struct __main_block_desc_0* Desc;</span><br><span class="line">    NSObject *__strong object;</span><br><span class="line">    NSObject *__weak weakObject;</span><br><span class="line">    __main_block_impl_0(void *fp, struct __main_block_desc_0 *desc, NSObject *__strong _object, NSObject *__weak _weakObject, int flags=0) : object(_object), weakObject(_weakObject) &#123;</span><br><span class="line">        impl.isa = &amp;_NSConcreteStackBlock;</span><br><span class="line">        impl.Flags = flags;</span><br><span class="line">        impl.FuncPtr = fp;</span><br><span class="line">        Desc = desc;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">static void __main_block_func_0(struct __main_block_impl_0 *__cself) &#123;</span><br><span class="line">    NSObject *__strong object = __cself-&gt;object; // bound by copy</span><br><span class="line">    NSObject *__weak weakObject = __cself-&gt;weakObject; // bound by copy</span><br><span class="line">    </span><br><span class="line">    NSLog((NSString *)&amp;__NSConstantStringImpl__var_folders_2p_n_j9tbqx6lqb2bqv110q6d300000gn_T_main_a7d9fa_mi_0, object);</span><br><span class="line">    NSLog((NSString *)&amp;__NSConstantStringImpl__var_folders_2p_n_j9tbqx6lqb2bqv110q6d300000gn_T_main_a7d9fa_mi_1, weakObject);</span><br><span class="line">    NSLog((NSString *)&amp;__NSConstantStringImpl__var_folders_2p_n_j9tbqx6lqb2bqv110q6d300000gn_T_main_a7d9fa_mi_2, globalObjc);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">static void __main_block_copy_0(struct __main_block_impl_0*dst, struct __main_block_impl_0*src) &#123;</span><br><span class="line">    _Block_object_assign((void*)&amp;dst-&gt;object, (void*)src-&gt;object, 3/*BLOCK_FIELD_IS_OBJECT*/);</span><br><span class="line">    _Block_object_assign((void*)&amp;dst-&gt;weakObject, (void*)src-&gt;weakObject, 3/*BLOCK_FIELD_IS_OBJECT*/);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">static void __main_block_dispose_0(struct __main_block_impl_0*src) &#123;</span><br><span class="line">    _Block_object_dispose((void*)src-&gt;object, 3/*BLOCK_FIELD_IS_OBJECT*/);</span><br><span class="line">    _Block_object_dispose((void*)src-&gt;weakObject, 3/*BLOCK_FIELD_IS_OBJECT*/);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">static struct __main_block_desc_0 &#123;</span><br><span class="line">    size_t reserved;</span><br><span class="line">    size_t Block_size;</span><br><span class="line">    void (*copy)(struct __main_block_impl_0*, struct __main_block_impl_0*);</span><br><span class="line">    void (*dispose)(struct __main_block_impl_0*);</span><br><span class="line">&#125; __main_block_desc_0_DATA = &#123; 0, sizeof(struct __main_block_impl_0), __main_block_copy_0, __main_block_dispose_0&#125;;</span><br><span class="line"></span><br><span class="line">int main(int argc, char * argv[]) &#123;</span><br><span class="line">    NSObject *object = ((NSObject *(*)(id, SEL))(void *)objc_msgSend)((id)((NSObject *(*)(id, SEL))(void *)objc_msgSend)((id)objc_getClass(&quot;NSObject&quot;), sel_registerName(&quot;alloc&quot;)), sel_registerName(&quot;init&quot;));</span><br><span class="line">    __attribute__((objc_ownership(weak))) NSObject *weakObject = object;</span><br><span class="line"></span><br><span class="line">    void (*testBlock)(void) = ((void (*)())&amp;__main_block_impl_0((void *)__main_block_func_0, &amp;__main_block_desc_0_DATA, object, weakObject, 570425344));</span><br><span class="line"></span><br><span class="line">    ((void (*)(__block_impl *))((__block_impl *)testBlock)-&gt;FuncPtr)((__block_impl *)testBlock);</span><br><span class="line"></span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>如果<strong>截获的变量是对象类型的，会将对象变量及其所有权修饰符一并截获</strong>。再看一下<code>__main_block_copy_0</code>和<code>__main_block_dispose_0</code>。</p>
+<ul>
+<li>当block进行一次copy操作的时候，<code>__main_block_copy_0</code>函数内部调用<code>_Block_object_assign</code>函数，它根据对象的类型产生强引用或者弱引用；</li>
+<li>当block从堆中移除的时候，<code>__main_block_dispose_0</code>函数内部调用<code>_Block_object_dispose</code>函数，它会自动释放掉引用的变量。</li>
+</ul>
+<p>关于截获对象的实验是在ARC环境下执行的，testBlock是<code>_NSConcreteMallocBlock</code>类型的。如果在非ARC环境下，testBlock是<code>_NSConcreteStackBlock</code>类型的即<strong>Block在栈上，则不会对截获的对象变量进行强引用</strong>。</p>
+<h2 id="block修饰符"><a href="#block修饰符" class="headerlink" title="__block修饰符"></a>__block修饰符</h2><p>当我们需要对被Block截获的局部变量进行赋值操作的话，需要添加一个<code>__block</code>这个说明符，那<code>__block</code>到底有什么作用呢？</p>
+<p>先看一段代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;stdio.h&gt;</span><br><span class="line"></span><br><span class="line">int main(int argc, char * argv[]) &#123;</span><br><span class="line">    __block int a = 1;</span><br><span class="line">    void (^testBlock)(void) = ^&#123;</span><br><span class="line">        a = 100;</span><br><span class="line">        printf(&quot;%d&quot;, a);</span><br><span class="line">    &#125;;</span><br><span class="line">    testBlock();</span><br><span class="line">    </span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>由于使用了<code>__block</code>关键字，可以修改变量a的值，所以输出结果是100。</p>
+<p>先说明一下为什么不使用<code>__block</code>就不能修改值。执行block就是调用<code>__main_block_func_0</code>函数，<code>a</code>是<code>main</code>函数中的局部变量，我们不可能在一个函数中去修改另一个函数的局部变量。</p>
+<p>将上面代码转换成C++代码，先看一下<code>__main_block_impl_0</code>这个结构体</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">struct __Block_byref_a_0 &#123;</span><br><span class="line">    void *__isa;</span><br><span class="line">    __Block_byref_a_0 *__forwarding;</span><br><span class="line">    int __flags;</span><br><span class="line">    int __size;</span><br><span class="line">    int a;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">struct __main_block_impl_0 &#123;</span><br><span class="line">    struct __block_impl impl;</span><br><span class="line">    struct __main_block_desc_0* Desc;</span><br><span class="line">    __Block_byref_a_0 *a; // by ref</span><br><span class="line">    __main_block_impl_0(void *fp, struct __main_block_desc_0 *desc, __Block_byref_a_0 *_a, int flags=0) : a(_a-&gt;__forwarding) &#123;</span><br><span class="line">        impl.isa = &amp;_NSConcreteStackBlock;</span><br><span class="line">        impl.Flags = flags;</span><br><span class="line">        impl.FuncPtr = fp;</span><br><span class="line">        Desc = desc;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p><code>__main_block_impl_0</code>结构体中多了一个<code>__Block_byref_a_0 *a</code>而不是<code>int a</code>。<code>__Block_byref_a_0</code>也是一个结构体，里面也有一个<code>isa</code>指针，因此我们也可以将它当做一个对象。另外还有一个<code>__Block_byref_a_0 *</code>类型的<code>__forwarding</code>指针和变量<code>a</code>。关于<code>__forwarding</code>指针的作用我们会在后面提到。</p>
+<p>接着是主函数：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">static void __main_block_copy_0(struct __main_block_impl_0*dst, struct __main_block_impl_0*src) &#123;</span><br><span class="line">    _Block_object_assign((void*)&amp;dst-&gt;a, (void*)src-&gt;a, 8/*BLOCK_FIELD_IS_BYREF*/);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">static void __main_block_dispose_0(struct __main_block_impl_0*src) &#123;</span><br><span class="line">    _Block_object_dispose((void*)src-&gt;a, 8/*BLOCK_FIELD_IS_BYREF*/);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">static struct __main_block_desc_0 &#123;</span><br><span class="line">    size_t reserved;</span><br><span class="line">    size_t Block_size;</span><br><span class="line">    void (*copy)(struct __main_block_impl_0*, struct __main_block_impl_0*);</span><br><span class="line">    void (*dispose)(struct __main_block_impl_0*);</span><br><span class="line">&#125; __main_block_desc_0_DATA = &#123; 0, sizeof(struct __main_block_impl_0), __main_block_copy_0, __main_block_dispose_0&#125;;</span><br><span class="line"></span><br><span class="line">int main(int argc, char * argv[]) &#123;</span><br><span class="line">    __attribute__((__blocks__(byref))) __Block_byref_a_0 a = &#123;(void*)0,(__Block_byref_a_0 *)&amp;a, 0, sizeof(__Block_byref_a_0), 1&#125;;</span><br><span class="line">    </span><br><span class="line">    void (*testBlock)(void) = ((void (*)())&amp;__main_block_impl_0((void *)__main_block_func_0, &amp;__main_block_desc_0_DATA, (__Block_byref_a_0 *)&amp;a, 570425344));</span><br><span class="line">    </span><br><span class="line">    ((void (*)(__block_impl *))((__block_impl *)testBlock)-&gt;FuncPtr)((__block_impl *)testBlock);</span><br><span class="line">    </span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在主函数中我们可以看到<code>__block int a = 1;</code>转化成了<code>__Block_byref_a_0</code>的一个结构体，其中<code>__forwarding</code>指针指向这个结构体自己。</p>
+<p><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/%E8%AE%BF%E9%97%AE__block%E5%8F%98%E9%87%8F.jpg" alt="访问__block变量"></p>
+<p>最后是Block执行的时候即调用<code>__main_block_func_0</code>函数：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">static void __main_block_func_0(struct __main_block_impl_0 *__cself) &#123;</span><br><span class="line">  __Block_byref_a_0 *a = __cself-&gt;a; // bound by ref</span><br><span class="line">  (a-&gt;__forwarding-&gt;a) = 100;</span><br><span class="line">  printf(&quot;%d&quot;, (a-&gt;__forwarding-&gt;a));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>原来的<code>a = 100;</code>则被转换成<code>__Block_byref_a_0 *a = __cself-&gt;a;</code>和<code>(a-&gt;__forwarding-&gt;a) = 100;</code>。这两句代码的意思是先获取结构体中的<code>a</code>，通过<code>a</code>结构体的<code>__forwarding</code>指针指向成员变量<code>a</code>赋值为100。</p>
+<p>所以<code>__block</code>的本质就是<strong>__block将变量包装成一个对象，将截获到的值存在这个对象中，通过对截获的值进行赋值而更改原有的值</strong>。</p>
+<h2 id="Block存储域"><a href="#Block存储域" class="headerlink" title="Block存储域"></a>Block存储域</h2><p>block有下面三种类型</p>
+<table>
+<thead>
+<tr>
+<th>类</th>
+<th>设置对象的存储域</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>_NSConcreteStackBlock</td>
+<td>栈 </td>
+</tr>
+<tr>
+<td>_NSConcreteGlobalBlock</td>
+<td>程序的数据区域 </td>
+</tr>
+<tr>
+<td>_NSConcreteMallocBlock</td>
+<td>堆</td>
+</tr>
+</tbody>
+</table>
+<p>那么如何确定block的类型？下面这个实验需要在MRC环境下进行测试，代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">int main(int argc, char * argv[]) &#123;</span><br><span class="line">    int a = 1;</span><br><span class="line">    </span><br><span class="line">    void (^block1)(void) = ^&#123;</span><br><span class="line">        NSLog(@&quot;%s - %d&quot;, __func__, a);</span><br><span class="line">    &#125;;</span><br><span class="line">    </span><br><span class="line">    void (^block2)(void) = ^&#123;</span><br><span class="line">        NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">    &#125;;</span><br><span class="line">    </span><br><span class="line">    void (^block3)(void) = [block1 copy];</span><br><span class="line">    </span><br><span class="line">    NSLog(@&quot;%@ %@ %@&quot;, [block1 class], [block2 class], [block3 class]);</span><br><span class="line">    </span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>结果如下：<br><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/block%E7%B1%BB%E5%9E%8B.jpg" alt="block类型"></p>
+<p>通过打印block的类型可以知道</p>
+<table>
+<thead>
+<tr>
+<th>类</th>
+<th>环境</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>_NSConcreteStackBlock</td>
+<td>访问了自动变量值</td>
+</tr>
+<tr>
+<td>_NSConcreteGlobalBlock</td>
+<td>没有访问自动变量值</td>
+</tr>
+<tr>
+<td>_NSConcreteMallocBlock</td>
+<td>_NSConcreteStackBlock使用了copy</td>
+</tr>
+</tbody>
+</table>
+<p>copy操作对不同类型block的影响：</p>
+<table>
+<thead>
+<tr>
+<th>Block的类</th>
+<th>副本源的配置存储域</th>
+<th>复制效果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>_NSConcreteStackBlock</td>
+<td>栈</td>
+<td>从栈复制到堆</td>
+</tr>
+<tr>
+<td>_NSConcreteGlobalBlock</td>
+<td>程序的数据区域</td>
+<td>什么也不做</td>
+</tr>
+<tr>
+<td>_NSConcreteMallocBlock</td>
+<td>堆</td>
+<td>引用计数增加</td>
+</tr>
+</tbody>
+</table>
+<p>block的copy操作能保证block不容易被销毁。但是在ARC环境下，编译器会根据情况自动将栈上的block复制到堆上，即我们打印出来的block是<code>_NSConcreteMallocBlock</code>类型的。</p>
+<p>这些情况有：</p>
+<ul>
+<li>block作为返回值的时候；</li>
+<li>block赋值给strong指针的时候；</li>
+<li>block作为Cocoa API中方法名含有usingBlock的方法参数的时候；</li>
+<li>block作为GCD API的参数的时候；</li>
+</ul>
+<p>所以如果将上面代码放在ARC环境下执行的话，则<code>block1</code>是<code>__NSMallocBlock__</code>类型的。</p>
+<p>release操作会在其内部自动执行。</p>
+<h2 id="block变量的存储域"><a href="#block变量的存储域" class="headerlink" title="__block变量的存储域"></a>__block变量的存储域</h2><table>
+<thead>
+<tr>
+<th>__block变量的存储域</th>
+<th>Block从栈复制到堆时的影响</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>栈</td>
+<td>从栈复制到堆并被Block持有</td>
+</tr>
+<tr>
+<td>堆</td>
+<td>被Block持有</td>
+</tr>
+</tbody>
+</table>
+<p>既然<code>__block</code>对应的结构体或者对象是在Block内部使用，那么Block就需要对这个对象的生命周期进行负责。接着我们从源码里面进行理解</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">static void __main_block_copy_0(struct __main_block_impl_0*dst, struct __main_block_impl_0*src) &#123;</span><br><span class="line">    _Block_object_assign((void*)&amp;dst-&gt;a, (void*)src-&gt;a, 8/*BLOCK_FIELD_IS_BYREF*/);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">static void __main_block_dispose_0(struct __main_block_impl_0*src) &#123;</span><br><span class="line">    _Block_object_dispose((void*)src-&gt;a, 8/*BLOCK_FIELD_IS_BYREF*/);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">static struct __main_block_desc_0 &#123;</span><br><span class="line">    size_t reserved;</span><br><span class="line">    size_t Block_size;</span><br><span class="line">    void (*copy)(struct __main_block_impl_0*, struct __main_block_impl_0*);</span><br><span class="line">    void (*dispose)(struct __main_block_impl_0*);</span><br><span class="line">&#125; __main_block_desc_0_DATA = &#123; 0, sizeof(struct __main_block_impl_0), __main_block_copy_0, __main_block_dispose_0&#125;;</span><br><span class="line"></span><br><span class="line">int main(int argc, char * argv[]) &#123;</span><br><span class="line">    __attribute__((__blocks__(byref))) __Block_byref_a_0 a = &#123;(void*)0,(__Block_byref_a_0 *)&amp;a, 0, sizeof(__Block_byref_a_0), 1&#125;;</span><br><span class="line">    </span><br><span class="line">    void (*testBlock)(void) = ((void (*)())&amp;__main_block_impl_0((void *)__main_block_func_0, &amp;__main_block_desc_0_DATA, (__Block_byref_a_0 *)&amp;a, 570425344));</span><br><span class="line">    </span><br><span class="line">    ((void (*)(__block_impl *))((__block_impl *)testBlock)-&gt;FuncPtr)((__block_impl *)testBlock);</span><br><span class="line">    </span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>我们需要注意两个函数<code>__main_block_copy_0</code>和<code>__main_block_dispose_0</code>。</p>
+<ul>
+<li>当block进行一次copy操作的时候，<code>__main_block_copy_0</code>函数内部调用<code>_Block_object_assign</code>函数，它会对<code>__block</code>变量生成强引用；</li>
+<li>当block从堆中移除的时候，<code>__main_block_dispose_0</code>函数内部调用<code>_Block_object_dispose</code>函数，它会自动释放掉引用的<code>__block</code>变量。</li>
+</ul>
+<p>上面的代码是在ARC环境下的，如果<strong>Block在栈上，并不会对<code>__block</code>变量产生引用</strong>。</p>
+<p>这里还要解决一个前面遗留的问题，既然<code>__Block_byref_a_0</code>结构体中已经有变量<code>a</code>，为什么还需要使用<code>__forwarding</code>指针对<code>a</code>赋值呢或者说<code>__forwarding</code>存在的意义是什么？</p>
+<p>关于<code>__forwarding</code>的作用《Objective-C高级编程》一书中的第111页、第112页中有很明确的说到：<strong><strong>block变量的结构体成员变量</strong>forwarding可以实现无论<strong>block变量配置在栈上还是堆上都能够正确地访问</strong>block变量。</strong></p>
+<p>没有进行copy操作的时候：<br><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/%E6%A0%88%E4%B8%8A%E7%9A%84block.png" alt="栈上的block"><br>进行copy操作以后：<br><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/block%E6%8B%B7%E8%B4%9D.png" alt="block拷贝"></p>
+<p>这里分为两种情况：</p>
+<ol>
+<li><p>如果我们没有对栈上的Block执⾏copy操作，修改被<code>__block</code>修饰的变量实际上是通过其<code>__forwarding</code>指针指向的自身，对其中的变量进行修改。</p>
+</li>
+<li><p>如果我们执行过copy操作，那么栈上的Block的<code>__forwarding</code>指针，实际是指向堆上的<code>__block</code>修饰的变量，⽽堆上的<code>__forwarding</code>指针则指向⾃自身的<code>__block</code>修饰的变量。在变量作用域结束的时候，栈上的<code>__block</code>变量和Block被废弃掉，但是堆上的<code>__block</code>变量和Block不受影响。</p>
+</li>
+</ol>
+<h2 id="Block的循环引用"><a href="#Block的循环引用" class="headerlink" title="Block的循环引用"></a>Block的循环引用</h2><p>我们在使用Block的时候，如果有一个对象持有了这个Block，而在Block内部又使用了这个对象，就会造成循环引用。如以下写法：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">#import &lt;Foundation/Foundation.h&gt;</span><br><span class="line"></span><br><span class="line">typedef void (^TestBlock) (void);</span><br><span class="line"></span><br><span class="line">@interface AObject: NSObject &#123;</span><br><span class="line">    TestBlock testBlock;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">@implementation AObject</span><br><span class="line"></span><br><span class="line">- (instancetype)init &#123;</span><br><span class="line">    if (self = [super init]) &#123;</span><br><span class="line">        testBlock = ^&#123;</span><br><span class="line">            NSLog(@&quot;self = %@&quot;, self);</span><br><span class="line">        &#125;;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    return self;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (void)dealloc &#123;</span><br><span class="line">    NSLog(@&quot;%@ dealloc&quot;, self.class);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">int main(int argc, char * argv[]) &#123;</span><br><span class="line">    </span><br><span class="line">    AObject *a = [[AObject alloc] init];</span><br><span class="line">    NSLog(@&quot;%@&quot;, a);</span><br><span class="line">    </span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到，上面这段代码发生了循环引用，导致AObject对象无法被释放。通常做法是使用<code>__weak</code>关键字在Block外部声明一个弱引用。重新修改下<code>init</code>方法：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">- (instancetype)init &#123;</span><br><span class="line">    if (self = [super init]) &#123;</span><br><span class="line">        __weak AObject *weakSelf = self;</span><br><span class="line">        testBlock = ^&#123;</span><br><span class="line">            NSLog(@&quot;self = %@&quot;, weakSelf);</span><br><span class="line">        &#125;;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    return self;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>前面在讲述截获自动变量值的时候，我们知道Block在截获对象类型的时候，会连同对象的所有权修饰符一起截获，这里截获的是<code>__weak</code>修饰的<code>weakSelf</code>,因此不会发生循环引用。</p>
+<p>在为避免循环引用而使用<code>__weak</code>修饰符的时候，还要注意有可能在Block执行的时候，对象在中途被释放掉了。这个时候需要在Block内部声明一个局部变量强持有对象，这个局部变量会在到Block执行结束时自动释放，不会造成循环引用，而对象也会在Block执行结束后被释放。</p>
+<p>是不是所有的Block都需要在外部声明使用<code>__weak</code>修饰呢？答案是否定的。所谓“引用循环”是指双向的强引用，所以那些“单向的强引用”（block强引用self）没有问题。例如：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[UIView animateWithDuration:duration</span><br><span class="line">                 animations:^&#123;</span><br><span class="line">                     [self.superview layoutIfNeeded];</span><br><span class="line">                 &#125;];</span><br></pre></td></tr></table></figure>
+<p>但如果你使用一些参数中可能含有ivar的系统的api，如<code>NSNotificationCenter</code>就要小心一点。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">__weak __typeof__(self) weakSelf = self;</span><br><span class="line">_observer = [[NSNotificationCenter defaultCenter] addObserverForName:@&quot;testKey&quot;</span><br><span class="line">                                                              object:nil</span><br><span class="line">                                                               queue:nil</span><br><span class="line">                                                          usingBlock:^(NSNotification *note) &#123;</span><br><span class="line">   //使用self会循环引用，但是使用weakSelf或者strongSelf则没有问题                                                      </span><br><span class="line">    __typeof__(self) strongSelf = weakSelf;</span><br><span class="line">    [strongSelf dismissModalViewControllerAnimated:YES];</span><br><span class="line">&#125;];</span><br></pre></td></tr></table></figure>
+<p>可以看出<code>self --&gt; _observer --&gt; block --&gt; self</code>这显然是一个循环引用。总而言之，<strong>只有当self直接或间接的持有 Block，并且在Block内部又使用了self的时候，才应该使weakSelf</strong>。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ol>
+<li>block的本质是一个封装了函数调用以及函数调用环境的OC对象；</li>
+<li>block截获自动变量值的规则：<ol>
+<li>局部变量会被直接截获；</li>
+<li>局部静态变量会被截获其指针；</li>
+<li>全局变量并不会被截获，而是直接使用；</li>
+</ol>
+</li>
+<li>block截获对象的规则：<ol>
+<li>block位于栈上，则不会对截获的对象变量进行强引用；</li>
+<li>block从栈上复制到堆上，调用<code>copy</code>函数，对截获的变量进行强/弱引用；</li>
+<li>block从堆上移除，调用<code>dispose</code>函数，自动释放引用的变量；</li>
+</ol>
+</li>
+<li>block使用copy属性的原因：在MRC下，访问了自动变量的block处于栈上，容易被释放，使用copy可以将其复制到堆上，放在堆上便可以自己去控制Block的生命周期；在ARC下，对Block做了优化；</li>
+<li>block的循环引用：一个对象持有了这个Block，而在Block内部又使用了这个对象，就会造成循环引用；</li>
+<li>__block的作用：解决block内部无法修改自动变量值的问题；</li>
+<li>__block的注意点：不能修饰全局变量和静态变量；</li>
+<li><strong>block的实质：编译器将</strong>block变量包装成一个对象，将截获到的值存在这个对象中，通过对截获的值进行赋值而更改原有的值；</li>
+<li><strong>forwarding指针的作用：可以实现无论</strong>block变量配置在栈上还是堆上都能够正确地访问__block变量；</li>
+</ol>
+<h2 id="Sunnyxx的Block面试题"><a href="#Sunnyxx的Block面试题" class="headerlink" title="Sunnyxx的Block面试题"></a>Sunnyxx的Block面试题</h2><p><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/sunnyxx_block.png" alt="sunnyxx_block"></p>
+<p>代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br></pre></td><td class="code"><pre><span class="line">#import &lt;Foundation/Foundation.h&gt;</span><br><span class="line">#import &quot;fishhook.h&quot;</span><br><span class="line"></span><br><span class="line">// Block定义</span><br><span class="line">struct __block_impl &#123;</span><br><span class="line">    void *isa;</span><br><span class="line">    int Flags;</span><br><span class="line">    int Reserved;</span><br><span class="line">    void *FuncPtr;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">struct __main_block_desc_0 &#123;</span><br><span class="line">    size_t reserved;</span><br><span class="line">    size_t Block_size;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">struct __main_block_impl_0 &#123;</span><br><span class="line">    struct __block_impl impl;</span><br><span class="line">    struct __main_block_desc_0 *Desc;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">#pragma mark - 第一题</span><br><span class="line"></span><br><span class="line">static void test_1__main_block_func_0(struct __main_block_impl_0 *__cself)&#123;</span><br><span class="line">    NSLog(@&quot;Hello,world!&quot;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void HookBlockToPrintHelloWorld(id block)&#123;</span><br><span class="line">    //    struct __block_impl *tmp = (__bridge struct __block_impl *)block;</span><br><span class="line">    //    tmp-&gt;FuncPtr = &amp;test_1__main_block_func_0;</span><br><span class="line">    // 或者</span><br><span class="line">    struct __main_block_impl_0 *tmp2 = (__bridge struct  __main_block_impl_0 *)block;</span><br><span class="line">    ((struct __block_impl *)tmp2)-&gt;FuncPtr = &amp;test_1__main_block_func_0;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">#pragma mark - 第二题</span><br><span class="line"></span><br><span class="line">static void (*original_func)(struct __main_block_impl_0 *, int, NSString *);</span><br><span class="line"></span><br><span class="line">static void test_2__main_block_func_0(struct __main_block_impl_0 *__cself, int a, NSString *b) &#123;</span><br><span class="line">    NSLog(@&quot;%d %@&quot;, a, b);</span><br><span class="line">    original_func(__cself, a, b);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void HookBlockToPrintArguments(id block) &#123;</span><br><span class="line">    struct __block_impl *tmp = (__bridge struct __block_impl *)block;</span><br><span class="line">    original_func = tmp-&gt;FuncPtr;</span><br><span class="line">    tmp-&gt;FuncPtr = &amp;test_2__main_block_func_0;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">#pragma mark - 第三题</span><br><span class="line"></span><br><span class="line">static id (*original__Block_copy)(id);</span><br><span class="line"></span><br><span class="line">id new__Block_copy(id block) &#123;</span><br><span class="line">    id tmp = original__Block_copy(block);</span><br><span class="line">    HookBlockToPrintArguments(tmp);</span><br><span class="line">    </span><br><span class="line">    return tmp;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void HookEveryBlockToPrintArguments() &#123;</span><br><span class="line">    struct rebinding open_rebinding = &#123;</span><br><span class="line">        &quot;_Block_copy&quot;,</span><br><span class="line">        new__Block_copy,</span><br><span class="line">        (void *)&amp;original__Block_copy</span><br><span class="line">    &#125;;</span><br><span class="line">    </span><br><span class="line">    rebind_symbols((struct rebinding[1])&#123;open_rebinding&#125;, 1);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int main(int argc, char * argv[]) &#123;</span><br><span class="line">    // 第一题</span><br><span class="line">    void(^block1)(void) = ^&#123;</span><br><span class="line">        NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">    &#125;;</span><br><span class="line">    </span><br><span class="line">    HookBlockToPrintHelloWorld(block1);</span><br><span class="line">    </span><br><span class="line">    block1();</span><br><span class="line">    </span><br><span class="line">    // 第二题</span><br><span class="line">    void (^block2)(int a, NSString *b) = ^(int a, NSString *b) &#123;</span><br><span class="line">        NSLog(@&quot;block invoke&quot;);</span><br><span class="line">    &#125;;</span><br><span class="line">    </span><br><span class="line">    HookBlockToPrintArguments(block2);</span><br><span class="line">    </span><br><span class="line">    block2(123, @&quot;aaa&quot;);</span><br><span class="line">    </span><br><span class="line">    // 第三题</span><br><span class="line">    HookEveryBlockToPrintArguments();</span><br><span class="line">    </span><br><span class="line">    void (^block3)(int a, NSString *b) = ^(int a, NSString *b) &#123;</span><br><span class="line">        NSLog(@&quot;block3 invoke&quot;);</span><br><span class="line">    &#125;;</span><br><span class="line">    </span><br><span class="line">    block3(1, @&quot;dsadas&quot;);</span><br><span class="line">    </span><br><span class="line">    void (^block4)(int a, NSString *b) = ^(int a, NSString *b) &#123;</span><br><span class="line">        NSLog(@&quot;block4 invoke&quot;);</span><br><span class="line">    &#125;;</span><br><span class="line">    </span><br><span class="line">    block4(222, @&quot;ddd&quot;);</span><br><span class="line">    </span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>第一题分析</strong></p>
+<p>想要替换原有的block实现，我们需要知道Block是如何执行代码的。通过上面的原理分析，我们知道在执行block的代码就相当于调用<code>__main_block_func_0</code>函数。该函数指针被保存在<code>__block_impl</code>结构体的<code>FuncPtr</code>中。我们知道将<code>FuncPtr</code>指向我们自己的函数就可以完成切换。</p>
+<p><strong>第二题分析</strong></p>
+<p>知道第一题如何解答之后，第二题相对来说简单一点，其实就是在我们自定义函数的时候，这个函数需要包括我们传入的参数，以及原有实现。</p>
+<p>那么通过一个函数指针可以保存原有实现，在自定义函数中通过函数指针调用原有函数即可，而参数是本身<code>__main_block_func_0</code>函数就有的，我们只要确保我们自定义函数的参数列表与<code>__main_block_func_0</code>函数的参数列表一致就行。</p>
+<p><strong>第三题分析</strong></p>
+<p>这道题目说白了就是在一个适当的时机去调用<code>HookBlockToPrintArguments</code>。通过fishhook这个框架，我们可以动态的修改C语言函数。那如何确定这个C语言函数呢？这个函数需要有这么一个功能，它可以拿到原来的block对象，经过替换再重新返回。</p>
+<p>在ARC环境下，编译器会根据情况自动将栈上的block复制到堆上，它会调用一个<code>copy</code>函数即<code>_Block_copy</code>，所以我们需要动态修改这个函数。</p>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+      <div>
+        <ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者：</strong>
+    NeroXie
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="http://www.neroxie.com/2018/09/05/Blocks原理/" title="Block原理">http://www.neroxie.com/2018/09/05/Blocks原理/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>
+    本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/3.0/" rel="external nofollow" target="_blank">CC BY-NC-SA 3.0</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Objective-C/" rel="tag"># Objective-C</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2018/12/01/hexo+GitHub Pages+Mweb搭建博客/" rel="prev" title="Hexo+GitHub Pages+Mweb搭建博客">
+                Hexo+GitHub Pages+Mweb搭建博客 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="gitalk-container"></div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="https://avatars1.githubusercontent.com/u/17306472?s=460&v=4F" alt="NeroXie">
+            
+              <p class="site-author-name" itemprop="name">NeroXie</p>
+              <p class="site-description motion-element" itemprop="description">May the Force be with you</p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">24</span>
+                  <span class="site-state-item-name">日志</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                <a href="/categories/index.html">
+                  <span class="site-state-item-count">10</span>
+                  <span class="site-state-item-name">分类</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                <a href="/tags/index.html">
+                  <span class="site-state-item-count">6</span>
+                  <span class="site-state-item-name">标签</span>
+                </a>
+              </div>
+            
+
+          </nav>
+
+          
+
+          
+            <div class="links-of-author motion-element">
+                
+                  <span class="links-of-author-item">
+                    <a href="https://github.com/YiHuaXie" target="_blank" title="GitHub">
+                      
+                        <i class="fa fa-fw fa-github"></i>GitHub</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="mailto:xyh30902@163.com" target="_blank" title="E-Mail">
+                      
+                        <i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="https://juejin.im/user/595c8f866fb9a06bbf6fecba" target="_blank" title="掘金">
+                      
+                        <i class="fa fa-fw fa-globe"></i>掘金</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="https://www.jianshu.com/u/17c52abac13c" target="_blank" title="简书">
+                      
+                        <i class="fa fa-fw fa-heartbeat"></i>简书</a>
+                  </span>
+                
+            </div>
+          
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Block的实质"><span class="nav-number">1.</span> <span class="nav-text">Block的实质</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#截获自动变量值"><span class="nav-number">2.</span> <span class="nav-text">截获自动变量值</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#截获对象"><span class="nav-number">3.</span> <span class="nav-text">截获对象</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#block修饰符"><span class="nav-number">4.</span> <span class="nav-text">__block修饰符</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Block存储域"><span class="nav-number">5.</span> <span class="nav-text">Block存储域</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#block变量的存储域"><span class="nav-number">6.</span> <span class="nav-text">__block变量的存储域</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Block的循环引用"><span class="nav-number">7.</span> <span class="nav-text">Block的循环引用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">8.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Sunnyxx的Block面试题"><span class="nav-number">9.</span> <span class="nav-text">Sunnyxx的Block面试题</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2018 &mdash; <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">NeroXie</span>
+
+  
+</div>
+
+
+  <div class="powered-by">NeroXie的个人博客</div>
+
+
+
+
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+<div class="theme-info">
+  <div class="powered-by"></div>
+  <span class="post-count">博客全站共70.1k字</span>
+</div>
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/canvas-nest/canvas-nest.min.js"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.4"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+  <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+  <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+  <script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+   <script type="text/javascript">
+        var gitalk = new Gitalk({
+          clientID: '5e5c6074ea6483a9380d',
+          clientSecret: 'd16d85928f70d31702f591a6ba8c47b3b8fe432c',
+          repo: 'YiHuaXie.github.io',
+          owner: 'YiHuaXie',
+          admin: ['YiHuaXie'],
+          id: md5(location.pathname),
+         labels: 'gitalk'.split(',').filter(l => l),
+          perPage: 15,
+          pagerDirection: 'last',
+          createIssueManually: false,
+          distractionFreeMode: true
+        })
+        gitalk.render('gitalk-container')           
+       </script>
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

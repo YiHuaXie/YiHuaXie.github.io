@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link href="/lib/pace/pace-theme-flash.min.css?v=1.0.2" rel="stylesheet">
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="Objective-C,">
+
+
+
+
+
+
+
+
+
+
+<meta name="description" content="通过源码分析RunLoop的底层实现：RunLoop相关的类，与线程之间的关系、RunLoop运行过程等">
+<meta name="keywords" content="Objective-C">
+<meta property="og:type" content="article">
+<meta property="og:title" content="重拾RunLoop原理">
+<meta property="og:url" content="http://www.neroxie.com/2019/04/24/重拾RunLoop原理/index.html">
+<meta property="og:site_name" content="NeroXie的个人博客">
+<meta property="og:description" content="通过源码分析RunLoop的底层实现：RunLoop相关的类，与线程之间的关系、RunLoop运行过程等">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/Runloop%E7%B1%BB%E7%9A%84%E5%85%B3%E7%B3%BB.png">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/RunLoop%E8%A7%A6%E6%91%B8%E4%BA%8B%E4%BB%B6%E5%A4%84%E7%90%86.jpg">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/RunLoop_run.png">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/RunLoop%E5%A4%84%E7%90%86GCD.jpg">
+<meta property="og:updated_time" content="2022-11-23T20:14:09.309Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="重拾RunLoop原理">
+<meta name="twitter:description" content="通过源码分析RunLoop的底层实现：RunLoop相关的类，与线程之间的关系、RunLoop运行过程等">
+<meta name="twitter:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/Runloop%E7%B1%BB%E7%9A%84%E5%85%B3%E7%B3%BB.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://www.neroxie.com/2019/04/24/重拾RunLoop原理/">
+
+
+
+
+
+  <title>重拾RunLoop原理 | NeroXie的个人博客</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+    <a href="https://github.com/YiHuaXie" class="github-corner" aria-label="View source on GitHub"><svg width="80" height="80" viewbox="0 0 250 250" style="fill:#151513; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg></a><style>.github-corner:hover .octo-arm{animation:octocat-wave 560ms ease-in-out}@keyframes octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}@media (max-width:500px){.github-corner:hover .octo-arm{animation:none}.github-corner .octo-arm{animation:octocat-wave 560ms ease-in-out}}</style>
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta custom-logo">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">NeroXie的个人博客</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://www.neroxie.com/2019/04/24/重拾RunLoop原理/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="NeroXie">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="https://avatars1.githubusercontent.com/u/17306472?s=460&v=4F">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="NeroXie的个人博客">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">重拾RunLoop原理</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-04-24T10:36:50+00:00">
+                2019-04-24
+              </time>
+            
+
+            
+              <span class="post-meta-divider">|</span>
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-check-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">更新于&#58;</span>
+              
+              <time title="更新于" itemprop="dateModified" datetime="2022-11-23T20:14:09+00:00">
+                2022-11-23
+              </time>
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/RunLoop/" itemprop="url" rel="index">
+                    <span itemprop="name">RunLoop</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+            <div class="post-wordcount">
+              
+                
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">字数统计&#58;</span>
+                
+                <span title="字数统计">
+                  5k
+                </span>
+              
+
+              
+
+              
+            </div>
+          
+
+          
+              <div class="post-description">
+                  通过源码分析RunLoop的底层实现：RunLoop相关的类，与线程之间的关系、RunLoop运行过程等
+              </div>
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>虽然自己很早前就看过RunLoop的源码，当时看得时候，有点地方还是比较生涩的。所有抽了个时间，重新整理了一下之前RunLoop的笔记。<a href="https://opensource.apple.com/tarballs/CF/" target="_blank" rel="noopener">CoreFoundation源代码</a>关于RunLoop的源码主要集中在<code>CFRunLoop.c</code>文件中。</p>
+<h2 id="RunLoop的获取"><a href="#RunLoop的获取" class="headerlink" title="RunLoop的获取"></a>RunLoop的获取</h2><p>苹果并不允许我们直接创建RunLoop，RunLoop的创建在第一次获取的时候，使用<code>[NSRunLoop mainRunLoop]</code>或<code>CFRunLoopGetMain()</code>可以获取主线程的RunLoop；通过<code>[NSRunLoop currentRunLoop]</code>或<code>CFRunLoopGetCurrent()</code>获取当前线程的RunLoop。</p>
+<p>它们之间的关系是<code>Foundation</code>中的RunLoop是对<code>Core Foundation</code>中的包装。可以通过执行<code>NSLog(@&quot;%@, %p&quot;, [NSRunLoop mainRunLoop], CFRunLoopGetMain());</code>得出，这里就不贴实验结果了。</p>
+<p>接着看一下RunLoop在<code>CFRunLoop.c</code>中的定义：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">// 主线程的RunLoop</span><br><span class="line">CFRunLoopRef CFRunLoopGetMain(void) &#123;</span><br><span class="line">    CHECK_FOR_FORK(); // 判断是否需要fork进程</span><br><span class="line">    static CFRunLoopRef __main = NULL; // no retain needed</span><br><span class="line">    if (!__main) __main = _CFRunLoopGet0(pthread_main_thread_np()); // no CAS needed</span><br><span class="line">    return __main;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// 当前线程的RunLoop</span><br><span class="line">CFRunLoopRef CFRunLoopGetCurrent(void) &#123;</span><br><span class="line">    CHECK_FOR_FORK();</span><br><span class="line">    // 先从TSD中查找有没有相关的runloop信息，有则返回。</span><br><span class="line">    // 我们可以理解为runloop不光存在与全局字典中，也存在中TSD中。</span><br><span class="line">    CFRunLoopRef rl = (CFRunLoopRef)_CFGetTSD(__CFTSDKeyRunLoop);</span><br><span class="line">    if (rl) return rl;</span><br><span class="line">    return _CFRunLoopGet0(pthread_self());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>CHECK_FOR_FORK</code>用来判断是否需要fork进程，这里我们可以暂时不管。</p>
+<p>在获取主线程RunLoop的时候，它使用了<code>static CFRunLoopRef __main</code>进行保存，当第二次调用<code>CFRunLoopGetMain()</code>，<code>__main</code>是有值的，就不会再重新创建，否则就使用<code>_CFRunLoopGet0</code>进行创建，传入的是<code>pthread_main_thread_np()</code>即主线程。</p>
+<p>在获取当前线程的RunLoop的时候，首页会通过<code>_CFGetTSD</code>获取RunLoop，如果没有再通过<code>_CFRunLoopGet0</code>，传入的是当前的线程。</p>
+<p>这里介绍一下<code>Thread-specific data</code>。<code>Thread-specific data</code>是线程私有数据就是上面的<code>TSD</code>，顾名思义就是存一些特定的数据的，RunLoop会保存在线程的私有数据里。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">// __CFTSDTable</span><br><span class="line">typedef struct __CFTSDTable &#123;</span><br><span class="line">    uint32_t destructorCount;</span><br><span class="line">    uintptr_t data[CF_TSD_MAX_SLOTS];</span><br><span class="line">    tsdDestructor destructors[CF_TSD_MAX_SLOTS];</span><br><span class="line">&#125; __CFTSDTable;</span><br><span class="line"></span><br><span class="line">// _CFGetTSD</span><br><span class="line">CF_EXPORT void *_CFGetTSD(uint32_t slot) &#123;</span><br><span class="line">    __CFTSDTable *table = __CFTSDGetTable();</span><br><span class="line">    if (!table) &#123; return NULL; &#125;</span><br><span class="line">    uintptr_t *slots = (uintptr_t *)(table-&gt;data);</span><br><span class="line">    return (void *)slots[slot];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// _CFSetTSD</span><br><span class="line">CF_EXPORT void *_CFSetTSD(uint32_t slot, void *newVal, tsdDestructor destructor) &#123;</span><br><span class="line">    __CFTSDTable *table = __CFTSDGetTable();</span><br><span class="line">    if (!table) &#123; return NULL; &#125;</span><br><span class="line"></span><br><span class="line">    void *oldVal = (void *)table-&gt;data[slot];</span><br><span class="line">    table-&gt;data[slot] = (uintptr_t)newVal;</span><br><span class="line">    table-&gt;destructors[slot] = destructor;</span><br><span class="line">    </span><br><span class="line">    return oldVal;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>__CFTSDTable</code>的<code>data</code>数组用来保存私有数据，<code>destructors</code>数组用来保存析构函数，<code>destructorCount</code>用来记录析构函数的个数。</p>
+<p><code>_CFGetTSD</code>的作用就是获取<code>__CFTSDTable</code>的<code>data</code>数据，并返回<code>slot</code>对应的值。</p>
+<p><code>_CFSetTSD</code>的作用就是给<code>__CFTSDTable</code>里设置<code>data[slot]</code>和<code>destructors[slot]</code>位置的值。</p>
+<h2 id="RunLoop与线程之间的关系"><a href="#RunLoop与线程之间的关系" class="headerlink" title="RunLoop与线程之间的关系"></a>RunLoop与线程之间的关系</h2><p>要想知道RunLoop与线程之间的关系，就需要看一下<code>_CFRunLoopGet0</code>函数。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line">CF_EXPORT CFRunLoopRef _CFRunLoopGet0(pthread_t t) &#123;</span><br><span class="line">    // 当前线程为0，则取主线程</span><br><span class="line">    if (pthread_equal(t, kNilPthreadT)) &#123;</span><br><span class="line">        t = pthread_main_thread_np();</span><br><span class="line">    &#125;</span><br><span class="line">    __CFLock(&amp;loopsLock);</span><br><span class="line">    // __CFRunLoops是一个全局的静态字典。</span><br><span class="line">    // 如果该字典为空，就进行以下操作：</span><br><span class="line">    // 1.创建一个临时字典；</span><br><span class="line">    // 2.创建主线程的RunLoop，并将它存到临时字典里</span><br><span class="line">    // 3.OSAtomicCompareAndSwapPtrBarrier用来将这个临时字典复制到全局字典里；</span><br><span class="line">    // 并且使用了锁机制确保上述操作的安全性。</span><br><span class="line">    if (!__CFRunLoops) &#123;</span><br><span class="line">        __CFUnlock(&amp;loopsLock);</span><br><span class="line">        CFMutableDictionaryRef dict = CFDictionaryCreateMutable(kCFAllocatorSystemDefault, 0, NULL, &amp;kCFTypeDictionaryValueCallBacks);</span><br><span class="line">        CFRunLoopRef mainLoop = __CFRunLoopCreate(pthread_main_thread_np());</span><br><span class="line">        CFDictionarySetValue(dict, pthreadPointer(pthread_main_thread_np()), mainLoop);</span><br><span class="line">        if (!OSAtomicCompareAndSwapPtrBarrier(NULL, dict, (void * volatile *)&amp;__CFRunLoops)) &#123;</span><br><span class="line">            CFRelease(dict);</span><br><span class="line">        &#125;</span><br><span class="line">        CFRelease(mainLoop);</span><br><span class="line">        __CFLock(&amp;loopsLock);</span><br><span class="line">    &#125;</span><br><span class="line">    // 当前线程RunLoop的获取，获取不到就使用__CFRunLoopCreate创建一个RunLoop，并保存在全局字典里</span><br><span class="line">    CFRunLoopRef loop = (CFRunLoopRef)CFDictionaryGetValue(__CFRunLoops, pthreadPointer(t));</span><br><span class="line">    __CFUnlock(&amp;loopsLock);</span><br><span class="line">    if (!loop) &#123;</span><br><span class="line">        CFRunLoopRef newLoop = __CFRunLoopCreate(t);</span><br><span class="line">        __CFLock(&amp;loopsLock);</span><br><span class="line">        loop = (CFRunLoopRef)CFDictionaryGetValue(__CFRunLoops, pthreadPointer(t));</span><br><span class="line">        if (!loop) &#123;</span><br><span class="line">            CFDictionarySetValue(__CFRunLoops, pthreadPointer(t), newLoop);</span><br><span class="line">            loop = newLoop;</span><br><span class="line">        &#125;</span><br><span class="line">        // don&apos;t release run loops inside the loopsLock, because CFRunLoopDeallocate may end up taking it</span><br><span class="line">        __CFUnlock(&amp;loopsLock);</span><br><span class="line">        CFRelease(newLoop);</span><br><span class="line">    &#125;</span><br><span class="line">    if (pthread_equal(t, pthread_self())) &#123;</span><br><span class="line">        // t为当前线程的话，将loop保存在线程私有数据中</span><br><span class="line">        _CFSetTSD(__CFTSDKeyRunLoop, (void *)loop, NULL);</span><br><span class="line">        // __CFFinalizeRunLoop是RunLoop的析构函数，</span><br><span class="line">        // PTHREAD_DESTRUCTOR_ITERATIONS 表示是线程退出时销毁线程私有数据的最大次数</span><br><span class="line">        // 这也是RunLoop的释放时机--线程退出的时候</span><br><span class="line">        if (0 == _CFGetTSD(__CFTSDKeyRunLoopCntr)) &#123;</span><br><span class="line">            // 注册一个回调，当线程销毁时，顺便也销毁其对应的RunLoop</span><br><span class="line">            _CFSetTSD(__CFTSDKeyRunLoopCntr, (void *)(PTHREAD_DESTRUCTOR_ITERATIONS-1), (void (*)(void *))__CFFinalizeRunLoop);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    return loop;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>通过源代码我们可以知道：</p>
+<ol>
+<li>RunLoop和线程之间是一一对应的，它们之间的关系保存在一个全局字典以及线程私有数据中；</li>
+<li>全局字典以线程为Key，RunLoop对象为Value的形式保存RunLoop和线程之间的映射关系；</li>
+<li>在线程创建的时候，是没有对应的RunLoop，它的创建是在第一次获取的时候，它的销毁则发生在线程销毁的时候。</li>
+</ol>
+<p>之前在看源码的时候有两个地方不是很理解：</p>
+<p><strong>1.为什么上面的loop要再取一次</strong></p>
+<p>后来在《程序员的自我修养》第29页中得到启发。里面关于单例有这样一段代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">volatile T* pInst = 0;</span><br><span class="line">T* GetInstance()</span><br><span class="line">&#123;</span><br><span class="line">    if(pInst == NULL)</span><br><span class="line">    &#123;</span><br><span class="line">        lock();</span><br><span class="line">        if(pInst == NULL)</span><br><span class="line">            pInst = new T;</span><br><span class="line">        unlock();</span><br><span class="line">    &#125;</span><br><span class="line">    return pInst;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>书上只说明双重if在这里可以让lock的调用开销降到最低。为什么有这个效果，这里做一下说明。</p>
+<p>在不考虑CPU乱序的情况下，假设有两个线程A、B同时访问<code>GetInstance()</code>，A和B同时执行第一个判断语句，结果一样，都进入了代码块。<code>lock()</code>的设定就是只允许一个线程进入，假设A先进入，B在等待。A进入后首先判断<code>pInst</code>为<code>NULL</code>，那么new一个对象，然后解锁返回对象。唤醒B，这是B进入发现第二个判断通过不了（因为<code>pInst</code>已经有值了），这样的话B就直接解锁返回对象。假设只有最外层的判断的话，那么B也会创建一个对象。</p>
+<p>我想这里应该也是类似的作用吧。</p>
+<p><strong>2.RunLoop销毁的时机</strong></p>
+<p>上面的源代码只说明了这个会在RunLoop的析构函数是<code>__CFFinalizeRunLoop</code>，但是具体的释放时机会在后面说明。</p>
+<h2 id="RunLoop的创建"><a href="#RunLoop的创建" class="headerlink" title="RunLoop的创建"></a>RunLoop的创建</h2><p>从<code>_CFRunLoopGet0</code>函数的实现中可以知道，RunLoop的创建是通过调用使用<code>__CFRunLoopCreate</code>返回一个<code>CFRunLoopRef</code>的实例，这个函数大致分为两步：</p>
+<ol>
+<li>使用<code>_CFRuntimeCreateInstance</code>创建一个<code>CFRunLoopRef</code>实例，其实现为<code>CFRuntime.c</code>文件；</li>
+<li>对<code>CFRunLoopRef</code>进行初始化配置，包括调用<code>__CFRunLoopFindMode(loop, kCFRunLoopDefaultMode, true);</code>。</li>
+</ol>
+<p>另外在<code>__CFRunLoopFindMode</code>里讲到了RunLoop的定时器，用宏进行了判断</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">#if DEPLOYMENT_TARGET_MACOSX</span><br><span class="line">#define USE_DISPATCH_SOURCE_FOR_TIMERS 1</span><br><span class="line">#define USE_MK_TIMER_TOO 1</span><br><span class="line">#else</span><br><span class="line">#define USE_DISPATCH_SOURCE_FOR_TIMERS 0</span><br><span class="line">#define USE_MK_TIMER_TOO 1</span><br><span class="line">#endif</span><br></pre></td></tr></table></figure>
+<p>在<code>MACOSX</code>下，RunLoop会使用<code>GCD Timer</code>和<code>MK_TIMER</code>来做定时器，在非<code>MACOSX</code>下，使用<code>MK_TIMER</code>作为定时器。</p>
+<h2 id="RunLoop的释放"><a href="#RunLoop的释放" class="headerlink" title="RunLoop的释放"></a>RunLoop的释放</h2><p>我们知道RunLoop的释放是发生在线程销毁的时候。</p>
+<p>在<code>__CFTSDGetTable()</code>函数的实现中有这样的一句代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pthread_key_init_np(CF_TSD_KEY, __CFTSDFinalize);</span><br></pre></td></tr></table></figure>
+<p>通过<code>CF_TSD_KEY</code>，指定了对应的析构函数<code>__CFTSDFinalize</code>是一个析构函数。</p>
+<p><code>__CFTSDFinalize</code>的实现如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">static void __CFTSDFinalize(void *arg) &#123;</span><br><span class="line">    __CFTSDSetSpecific(arg);</span><br><span class="line"></span><br><span class="line">    if (!arg || arg == CF_TSD_BAD_PTR) &#123;</span><br><span class="line">        return;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    __CFTSDTable *table = (__CFTSDTable *)arg;</span><br><span class="line">    table-&gt;destructorCount++;</span><br><span class="line">        </span><br><span class="line">    for (int32_t i = 0; i &lt; CF_TSD_MAX_SLOTS; i++) &#123;</span><br><span class="line">        if (table-&gt;data[i] &amp;&amp; table-&gt;destructors[i]) &#123;</span><br><span class="line">            uintptr_t old = table-&gt;data[i];</span><br><span class="line">            table-&gt;data[i] = (uintptr_t)NULL;</span><br><span class="line">            table-&gt;destructors[i]((void *)(old));</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    if (table-&gt;destructorCount == PTHREAD_DESTRUCTOR_ITERATIONS - 1) &#123;    // On PTHREAD_DESTRUCTOR_ITERATIONS-1 call, destroy our data</span><br><span class="line">        free(table);</span><br><span class="line">        </span><br><span class="line">        __CFTSDSetSpecific(CF_TSD_BAD_PTR);</span><br><span class="line">        return;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>我们可以看到，<code>table</code>会循环遍历<code>data</code>和<code>destructors</code>的数据，并且把<code>old</code>变量作为<code>destructors</code>里函数的参数。<code>table-&gt;destructors[i]((void *)(old));</code>相当于就是在调用一个析构函数。通过前面的代码，我们知道RunLoop的析构函数是会存到<code>destructors</code>中去的。所以当线程退出的时候，会调用到RunLoop的析构函数<code>__CFFinalizeRunLoop</code>释放RunLoop。</p>
+<p>接着看一下<code>__CFFinalizeRunLoop</code>函数</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">// Called for each thread as it exits</span><br><span class="line">CF_PRIVATE void __CFFinalizeRunLoop(uintptr_t data) &#123;</span><br><span class="line">    CFRunLoopRef rl = NULL;</span><br><span class="line">    if (data &lt;= 1) &#123;</span><br><span class="line">        __CFLock(&amp;loopsLock);</span><br><span class="line">        if (__CFRunLoops) &#123;</span><br><span class="line">            rl = (CFRunLoopRef)CFDictionaryGetValue(__CFRunLoops, pthreadPointer(pthread_self()));</span><br><span class="line">            if (rl) CFRetain(rl);</span><br><span class="line">            // 移除全局字典中RunLoop与线程之间的映射关系</span><br><span class="line">            CFDictionaryRemoveValue(__CFRunLoops, pthreadPointer(pthread_self()));</span><br><span class="line">        &#125;</span><br><span class="line">        __CFUnlock(&amp;loopsLock);</span><br><span class="line">    &#125; else &#123;</span><br><span class="line">        // 递归移除</span><br><span class="line">        _CFSetTSD(__CFTSDKeyRunLoopCntr, (void *)(data - 1), (void (*)(void *))__CFFinalizeRunLoop);</span><br><span class="line">    &#125;</span><br><span class="line">    if (rl &amp;&amp; CFRunLoopGetMain() != rl) &#123; // protect against cooperative threads</span><br><span class="line">        if (NULL != rl-&gt;_counterpart) &#123;</span><br><span class="line">            CFRelease(rl-&gt;_counterpart);</span><br><span class="line">            rl-&gt;_counterpart = NULL;</span><br><span class="line">        &#125;</span><br><span class="line">        // purge all sources before deallocation</span><br><span class="line">        CFArrayRef array = CFRunLoopCopyAllModes(rl);</span><br><span class="line">        for (CFIndex idx = CFArrayGetCount(array); idx--;) &#123;</span><br><span class="line">            CFStringRef modeName = (CFStringRef)CFArrayGetValueAtIndex(array, idx);</span><br><span class="line">             // 移除RunLoop中的mode</span><br><span class="line">            __CFRunLoopRemoveAllSources(rl, modeName);</span><br><span class="line">        &#125;</span><br><span class="line">        // 移除RunLoop中的common mode</span><br><span class="line">        __CFRunLoopRemoveAllSources(rl, kCFRunLoopCommonModes);</span><br><span class="line">        CFRelease(array);</span><br><span class="line">    &#125;</span><br><span class="line">    if (rl) CFRelease(rl);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="RunLoop相关的类与作用"><a href="#RunLoop相关的类与作用" class="headerlink" title="RunLoop相关的类与作用"></a>RunLoop相关的类与作用</h2><p>在<code>CFRunLoop.c</code>中关于RunLoop的类一共有五个，它们分别是<code>CFRunLoopRef</code>、<code>CFRunLoopModeRef</code>、<code>CFRunLoopSourceRef</code>、<code>CFRunLoopObserverRef</code>、<code>CFRunLoopTimerRef</code>。各个类之间的关系：<br><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/Runloop%E7%B1%BB%E7%9A%84%E5%85%B3%E7%B3%BB.png" alt="Runloop中类之间的关系"></p>
+<h3 id="CFRunLoopRef"><a href="#CFRunLoopRef" class="headerlink" title="CFRunLoopRef"></a>CFRunLoopRef</h3><p><code>CFRunLoopRef</code>对应<code>__CFRunLoop</code>结构体，它的定义如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">struct __CFRunLoop &#123;</span><br><span class="line">    // 省略其他成员变量</span><br><span class="line">    ...</span><br><span class="line">    // common mode的集合</span><br><span class="line">    CFMutableSetRef _commonModes;</span><br><span class="line">    // 每个common mode都有的item(source,timer and observer)集合</span><br><span class="line">    CFMutableSetRef _commonModeItems;</span><br><span class="line">    // 当前runloop的mode</span><br><span class="line">    CFRunLoopModeRef _currentMode;</span><br><span class="line">    // 所有的mode的集合</span><br><span class="line">    CFMutableSetRef _modes;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>一个RunLoop可以包含几个Mode，但是必须指定一个Mode来运行，它取决于<code>_currentMode</code>的值。关于<code>_currentMode</code>的赋值在<code>CFRunLoopRunSpecific</code>函数中。</p>
+<h3 id="CFRunLoopModeRef"><a href="#CFRunLoopModeRef" class="headerlink" title="CFRunLoopModeRef"></a>CFRunLoopModeRef</h3><p>接着看<code>CFRunLoopModeRef</code>，<code>CFRunLoopModeRef</code>对应着<code>__CFRunLoopMode</code>结构体，其定义如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">struct __CFRunLoopMode &#123;</span><br><span class="line">    CFStringRef _name;</span><br><span class="line">    // source0的集合</span><br><span class="line">    CFMutableSetRef _sources0;</span><br><span class="line">    // source1的集合</span><br><span class="line">    CFMutableSetRef _sources1;</span><br><span class="line">    // observer的数组</span><br><span class="line">    CFMutableArrayRef _observers;</span><br><span class="line">    // timer的数组</span><br><span class="line">    CFMutableArrayRef _timers;</span><br><span class="line">    // 省略其他属性</span><br><span class="line">    ...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p><code>__CFRunLoopMode</code>中包含的就是RunLoop要处理的一些事情（source0/source1/observer/timer）。前面提到RunLoop必须在执行的Mode下运行，如果RunLoop需要切换Mode，只能退出Loop，再重新指定一个Mode进入。这样的好处是：<strong>不同组的source0/source1/observer/timer可以相互隔离，互不影响，从而提高执行效率</strong>。</p>
+<h4 id="RunLoop的Mode"><a href="#RunLoop的Mode" class="headerlink" title="RunLoop的Mode"></a>RunLoop的Mode</h4><p>RunLoop有五种运行模式，其中常见的1、2和5这三种</p>
+<ol>
+<li><code>kCFRunLoopDefaultMode</code>：App的默认Mode，通常主线程是在这个Mode下运行；</li>
+<li><code>UITrackingRunLoopMode</code>：界面跟踪Mode，用于滚动视图追踪触摸滑动，保证界面滑动时不受其他 Mode影响；</li>
+<li><code>UIInitializationRunLoopMode</code>：在刚启动App时第进入的第一个Mode，启动完成后就不再使用，会切换到kCFRunLoopDefaultMode；</li>
+<li><code>GSEventReceiveRunLoopMode</code>：接受系统事件的内部Mode；</li>
+<li><code>kCFRunLoopCommonModes</code>：这是一个占位用的Mode，并不是一种真正的Mode；</li>
+</ol>
+<h4 id="CommonModes"><a href="#CommonModes" class="headerlink" title="CommonModes"></a>CommonModes</h4><p><code>kCFRunLoopCommonModes</code>是苹果提供的一种“CommonModes”。它其实是一个标识符，并不是一个具体的Mode。<code>kCFRunLoopDefaultMode</code>和<code>UITrackingRunLoopMode</code>，并且都被标记为“CommonModes”。</p>
+<p>一个Mode可以将自己标记为“Common”属性（通过将其<code>ModeName</code>添加到RunLoop的<code>commonModes</code>中）。每当RunLoop的内容发生变化时，RunLoop都会自动将<code>_commonModeItems</code>里的source0/source1/observer/timer同步到具有“Common”标记的所有Mode里，即能在所有具有“Common”标记的所有Mode里运行。</p>
+<p>以<code>CFRunLoopAddSource</code>函数为例，只关注“CommonModes”的部分：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">void CFRunLoopAddSource(CFRunLoopRef rl, CFRunLoopSourceRef rls, CFStringRef modeName) &#123;</span><br><span class="line">    // 该Mode是CommonMode</span><br><span class="line">    if (modeName == kCFRunLoopCommonModes) &#123;</span><br><span class="line">        // _commonModes存在则获取一份数据拷贝</span><br><span class="line">        CFSetRef set = rl-&gt;_commonModes ? CFSetCreateCopy(kCFAllocatorSystemDefault, rl-&gt;_commonModes) : NULL;</span><br><span class="line">        if (NULL == rl-&gt;_commonModeItems) &#123;</span><br><span class="line">            // _commonModeItems不存在创建一个新的集合</span><br><span class="line">            rl-&gt;_commonModeItems = CFSetCreateMutable(kCFAllocatorSystemDefault, 0, &amp;kCFTypeSetCallBacks);</span><br><span class="line">        &#125;</span><br><span class="line">        // 将source添加到_commonModeItems</span><br><span class="line">        CFSetAddValue(rl-&gt;_commonModeItems, rls);</span><br><span class="line">        if (NULL != set) &#123;</span><br><span class="line">            CFTypeRef context[2] = &#123;rl, rls&#125;;</span><br><span class="line">            // 调用__CFRunLoopAddItemToCommonModes函数向_commonModes中所有的Mode添加这个source</span><br><span class="line">            CFSetApplyFunction(set, (__CFRunLoopAddItemToCommonModes), (void *)context);</span><br><span class="line">            CFRelease(set);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上面的source0/source1/observer/timer被统称为<code>mode item</code>，一个<code>item</code>可以被同时加入多个Mode。如果Mode里没有任何source0/source1/observer/timer，RunLoop便会立刻退出。</p>
+<p>这也解决了一个问题–<strong>为什么列表滑动的时候，NSTimer不执行回调？该如何解决？</strong></p>
+<p>默认NSTimer是运行在RunLoop的<code>kCFRunLoopDefaultMode</code>下，在列表滑动的时候，RunLoop会切换<code>UITrackingRunLoopMode</code>，因为RunLoop只能运行在一种模式下，所以NSTimer不会执行回调。<br>使用现成的API将NSTimer就有添加到CommonModes就可以，<code>kCFRunLoopDefaultMode</code> 和 <code>UITrackingRunLoopMode</code>都已经被标为”Common”属性的。这样Timer就同时加入了这两个Mode中。</p>
+<h3 id="CFRunLoopSourceRef"><a href="#CFRunLoopSourceRef" class="headerlink" title="CFRunLoopSourceRef"></a>CFRunLoopSourceRef</h3><p><code>CFRunLoopSourceRef</code>对应着<code>__CFRunLoopSource</code>结构体，其定义如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">struct __CFRunLoopSource &#123;</span><br><span class="line">    CFRuntimeBase _base;</span><br><span class="line">    uint32_t _bits;</span><br><span class="line">    pthread_mutex_t _lock;</span><br><span class="line">    CFIndex _order;			/* immutable */</span><br><span class="line">    CFMutableBagRef _runLoops;</span><br><span class="line">    union &#123;</span><br><span class="line">        CFRunLoopSourceContext version0;	/* immutable, except invalidation */</span><br><span class="line">        CFRunLoopSourceContext1 version1;	/* immutable, except invalidation */</span><br><span class="line">    &#125; _context;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>其中有两个字段<code>version0</code>和<code>version1</code>分别对应<code>Source0</code>和<code>Source1</code>。</p>
+<h4 id="Source0"><a href="#Source0" class="headerlink" title="Source0"></a>Source0</h4><p><code>Source0</code>的定义如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">typedef struct &#123;</span><br><span class="line">    CFIndex	version;</span><br><span class="line">    void *	info;</span><br><span class="line">    const void *(*retain)(const void *info);</span><br><span class="line">    void	(*release)(const void *info);</span><br><span class="line">    CFStringRef	(*copyDescription)(const void *info);</span><br><span class="line">    Boolean	(*equal)(const void *info1, const void *info2);</span><br><span class="line">    CFHashCode	(*hash)(const void *info);</span><br><span class="line">    // 当source被添加到RunLoop中后，会调用这个指针</span><br><span class="line">    void	(*schedule)(void *info, CFRunLoopRef rl, CFRunLoopMode mode);</span><br><span class="line">    // 当调CFRunLoopSourceInvalidate函数移除该source的时候，会调用这个指针</span><br><span class="line">    void	(*cancel)(void *info, CFRunLoopRef rl, CFRunLoopMode mode);</span><br><span class="line">    // RunLoop处理Source0的时候，会调用这个指针</span><br><span class="line">    void	(*perform)(void *info);</span><br><span class="line">&#125; CFRunLoopSourceContext;</span><br></pre></td></tr></table></figure>
+<p><a href="https://blog.ibireme.com/2015/05/18/runloop/" target="_blank" rel="noopener">大神的博客</a>中提到：<code>Source0</code>并不能主动触发事件。使用时，你需要先调用<code>CFRunLoopSourceSignal</code>，将这个Source标记为待处理，然后手动调用<code>CFRunLoopWakeUp</code>来唤醒RunLoop，让其处理这个事件。</p>
+<p>优秀的博客总是会被很多人阅读和模仿，这是可以理解的。但是确实没看到有人对这几句结论进行验证一下，当然我一开始也是看过记住，但是并没有做进一步的理解。</p>
+<p>下面给出我自己的推导过程：</p>
+<p>RunLoop通过<code>__CFRunLoopDoSources0</code>函数处理<code>Source0</code>。在它的实现有一段很关键的代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">if (__CFRunLoopSourceIsSignaled(rls)) &#123;</span><br><span class="line">    __CFRunLoopSourceUnsetSignaled(rls);</span><br><span class="line">    if (__CFIsValid(rls)) &#123;</span><br><span class="line">        __CFRunLoopSourceUnlock(rls);</span><br><span class="line">        __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__(rls-&gt;_context.version0.perform, rls-&gt;_context.version0.info);</span><br><span class="line">        CHECK_FOR_FORK();</span><br><span class="line">        sourceHandled = true;</span><br><span class="line">    &#125; else &#123;</span><br><span class="line">        __CFRunLoopSourceUnlock(rls);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>将其简化一下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">if (__CFRunLoopSourceIsSignaled(rls)) &#123;</span><br><span class="line">    __CFRunLoopSourceUnsetSignaled(rls);</span><br><span class="line">    __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__(rls-&gt;_context.version0.perform, rls-&gt;_context.version0.info);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__便是处理Source0的函数</span><br><span class="line">// perform指针也是Source0中定义的，</span><br><span class="line">static void __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__(void (*perform)(void *), void *info) &#123;</span><br><span class="line">    if (perform) &#123;</span><br><span class="line">        perform(info);</span><br><span class="line">    &#125;</span><br><span class="line">    asm __volatile__(&quot;&quot;); // thwart tail-call optimization</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>先判断该<code>Source0</code>是否被标记，如果是，取消该<code>Source0</code>的标记，并处理。既然这样肯定存在对应的一个标记函数<code>__CFRunLoopSourceSetSignaled</code>：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">// CFRunLoopSourceSignal函数是对外公开的。</span><br><span class="line">void CFRunLoopSourceSignal(CFRunLoopSourceRef rls) &#123;</span><br><span class="line">    CHECK_FOR_FORK();</span><br><span class="line">    __CFRunLoopSourceLock(rls);</span><br><span class="line">    if (__CFIsValid(rls)) &#123;</span><br><span class="line">        __CFRunLoopSourceSetSignaled(rls);</span><br><span class="line">    &#125;</span><br><span class="line">    __CFRunLoopSourceUnlock(rls);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>关于<code>CFRunLoopSourceSignal</code>函数的使用，<code>CFRunLoop.c</code>并没有相关使用代码。但是在<code>CFSocket.c</code>文件中能找到些许痕迹。</p>
+<p>相关代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">// </span><br><span class="line">if (shared-&gt;_source) &#123;</span><br><span class="line">    CFRunLoopSourceSignal(shared-&gt;_source);</span><br><span class="line">    _CFRunLoopSourceWakeUpRunLoops(shared-&gt;_source);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// CFRunLoopSourceContext代表Source0</span><br><span class="line">sock-&gt;_shared-&gt;_source = </span><br><span class="line">CFRunLoopSourceCreate(allocator, order, (CFRunLoopSourceContext *)&amp;context);</span><br><span class="line"></span><br><span class="line">if (sock-&gt;_shared-&gt;_source) &#123;</span><br><span class="line">    CFRunLoopSourceSignal(sock-&gt;_shared-&gt;_source);</span><br><span class="line">    _CFRunLoopSourceWakeUpRunLoops(sock-&gt;_shared-&gt;_source);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// _CFRunLoopSourceWakeUpRunLoops是CFRunLoop.c中的内部方法</span><br><span class="line">// 其核心就是调用CFRunLoopWakeUp函数</span><br><span class="line">CF_PRIVATE void _CFRunLoopSourceWakeUpRunLoops(CFRunLoopSourceRef rls) &#123;</span><br><span class="line">    CFBagRef loops = NULL;</span><br><span class="line">    __CFRunLoopSourceLock(rls);</span><br><span class="line">    if (__CFIsValid(rls) &amp;&amp; NULL != rls-&gt;_runLoops) &#123;</span><br><span class="line">        loops = CFBagCreateCopy(kCFAllocatorSystemDefault, rls-&gt;_runLoops);</span><br><span class="line">    &#125;</span><br><span class="line">    __CFRunLoopSourceUnlock(rls);</span><br><span class="line">    if (loops) &#123;</span><br><span class="line">	CFBagApplyFunction(loops, __CFRunLoopSourceWakeUpLoop, NULL);</span><br><span class="line">        CFRelease(loops);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">static void __CFRunLoopSourceWakeUpLoop(const void *value, void *context) &#123;</span><br><span class="line">    // 主动唤醒RunLoop</span><br><span class="line">    CFRunLoopWakeUp((CFRunLoopRef)value);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>通过上面给出的相关代码，我想可以解释<code>Source0</code>是如何被触发的了。</p>
+<p>使用<code>Source0</code>的情况：</p>
+<ul>
+<li><p>触摸事件处理；<br><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/RunLoop%E8%A7%A6%E6%91%B8%E4%BA%8B%E4%BB%B6%E5%A4%84%E7%90%86.jpg" alt="RunLoop处理触摸事件"></p>
+</li>
+<li><p>调用<code>performSelector:onThread:withObject:waitUntilDone:</code>方法；</p>
+</li>
+</ul>
+<h4 id="Source1"><a href="#Source1" class="headerlink" title="Source1"></a>Source1</h4><p><code>Source1</code>的定义如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">typedef struct &#123;</span><br><span class="line">    CFIndex	version;</span><br><span class="line">    void *	info;</span><br><span class="line">    const void *(*retain)(const void *info);</span><br><span class="line">    void	(*release)(const void *info);</span><br><span class="line">    CFStringRef	(*copyDescription)(const void *info);</span><br><span class="line">    Boolean	(*equal)(const void *info1, const void *info2);</span><br><span class="line">    CFHashCode	(*hash)(const void *info);</span><br><span class="line">#if (TARGET_OS_MAC &amp;&amp; !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE)) || (TARGET_OS_EMBEDDED || TARGET_OS_IPHONE)</span><br><span class="line">    mach_port_t	(*getPort)(void *info);</span><br><span class="line">    void *	(*perform)(void *msg, CFIndex size, CFAllocatorRef allocator, void *info);</span><br><span class="line">#else</span><br><span class="line">    void *	(*getPort)(void *info);</span><br><span class="line">    void	(*perform)(void *info);</span><br><span class="line">#endif</span><br><span class="line">&#125; CFRunLoopSourceContext1;</span><br></pre></td></tr></table></figure>
+<p><code>Source1</code>中有一个<code>mach_port_t</code>，mach_port是用于内核向线程发送消息的。 注意：<strong>Source1在处理的时候会分发一些操作给Source0去处理</strong>。</p>
+<p>使用<code>Source1</code>的情况：</p>
+<ul>
+<li>基于端口的线程间通信（A线程通过端口发送消息到B线程，这个消息是<code>Source1</code>的；</li>
+<li>系统事件的捕捉，以点击屏幕触发事件为例，我们点击屏幕到系统捕捉到这个点击事件是<code>Source1</code>，接着分发到<code>Source0</code>去处理这个点击事件。</li>
+</ul>
+<h3 id="CFRunLoopObserverRef"><a href="#CFRunLoopObserverRef" class="headerlink" title="CFRunLoopObserverRef"></a>CFRunLoopObserverRef</h3><p><code>CFRunLoopObserverRef</code>对应着<code>__CFRunLoopObserver</code>结构体，实现如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">struct __CFRunLoopObserver &#123;</span><br><span class="line">    CFRuntimeBase _base;</span><br><span class="line">    pthread_mutex_t _lock;</span><br><span class="line">    CFRunLoopRef _runLoop;</span><br><span class="line">    CFIndex _rlCount;</span><br><span class="line">    CFOptionFlags _activities;		/* immutable */</span><br><span class="line">    CFIndex _order;			/* immutable */</span><br><span class="line">    CFRunLoopObserverCallBack _callout;	/* immutable */</span><br><span class="line">    CFRunLoopObserverContext _context;	/* immutable, except invalidation */</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>每个<code>Observer</code>都包含了一个回调（函数指针<code>CFRunLoopObserverCallBack _callout</code>），当RunLoop的状态发生变化时，观察者就能通过回调接受到这个变化。</p>
+<p>RunLoop有以下几种状态：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">typedef CF_OPTIONS(CFOptionFlags, CFRunLoopActivity) &#123;</span><br><span class="line">    kCFRunLoopEntry = (1UL &lt;&lt; 0), // 即将进入loop</span><br><span class="line">    kCFRunLoopBeforeTimers = (1UL &lt;&lt; 1), // 即将处理Timer</span><br><span class="line">    kCFRunLoopBeforeSources = (1UL &lt;&lt; 2), // 即将处理Source</span><br><span class="line">    kCFRunLoopBeforeWaiting = (1UL &lt;&lt; 5), // 即将进入休眠</span><br><span class="line">    kCFRunLoopAfterWaiting = (1UL &lt;&lt; 6), // 结束休眠或被唤醒</span><br><span class="line">    kCFRunLoopExit = (1UL &lt;&lt; 7), // 退出loop</span><br><span class="line">    kCFRunLoopAllActivities = 0x0FFFFFFFU</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>使用<code>Observer</code>的情况：</p>
+<ul>
+<li>用于监听RunLoop的状态；</li>
+<li>UI刷新（Before Waiting）；</li>
+<li>AutoreleasePool释放；</li>
+</ul>
+<h4 id="CFRunLoopTimerRef"><a href="#CFRunLoopTimerRef" class="headerlink" title="CFRunLoopTimerRef"></a>CFRunLoopTimerRef</h4><p><code>CFRunLoopTimerRef</code>对应着<code>__CFRunLoopTimer</code>结构体，实现如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">struct __CFRunLoopTimer &#123;</span><br><span class="line">    CFRuntimeBase _base;</span><br><span class="line">    uint16_t _bits;</span><br><span class="line">    pthread_mutex_t _lock;</span><br><span class="line">    CFRunLoopRef _runLoop;</span><br><span class="line">    CFMutableSetRef _rlModes;</span><br><span class="line">    CFAbsoluteTime _nextFireDate;</span><br><span class="line">    CFTimeInterval _interval;		/* immutable */</span><br><span class="line">    CFTimeInterval _tolerance;          /* mutable */</span><br><span class="line">    uint64_t _fireTSR;			/* TSR units */</span><br><span class="line">    CFIndex _order;			/* immutable */</span><br><span class="line">    CFRunLoopTimerCallBack _callout;	/* immutable */</span><br><span class="line">    CFRunLoopTimerContext _context;	/* immutable, except invalidation */</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>使用<code>Timer</code>的情况：</p>
+<ul>
+<li>NSTimer，NSTimer基于RunLoop，其内部使用的就是<code>CFRunLoopTimerRef</code>；</li>
+<li><code>performSelector:withObject:afterDelay:</code>或类似带有<code>afterDelay</code>的方法。</li>
+</ul>
+<h2 id="RunLoop运行"><a href="#RunLoop运行" class="headerlink" title="RunLoop运行"></a>RunLoop运行</h2><p>RunLoop通过<code>CFRunLoopRun</code>和<code>CFRunLoopRunInMode</code>这两个函数运行。</p>
+<h3 id="CFRunLoopRun"><a href="#CFRunLoopRun" class="headerlink" title="CFRunLoopRun"></a>CFRunLoopRun</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">void CFRunLoopRun(void) &#123;</span><br><span class="line">    int32_t result;</span><br><span class="line">    do &#123;</span><br><span class="line">        result = CFRunLoopRunSpecific(CFRunLoopGetCurrent(), kCFRunLoopDefaultMode, 1.0e10, false);</span><br><span class="line">        CHECK_FOR_FORK();</span><br><span class="line">    &#125; while (kCFRunLoopRunStopped != result &amp;&amp; kCFRunLoopRunFinished != result);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>函数默认在<code>kCFRunLoopDefaultMode</code>下运行RunLoop，并且一直运行在一个do-while的循环里。<br>另外函数不会主动调用<code>CFRunLoopStop</code>函数（<code>kCFRunLoopRunStopped</code>）或者将所有事件源移除（<code>kCFRunLoopRunFinished</code>）。</p>
+<h3 id="CFRunLoopRunInMode"><a href="#CFRunLoopRunInMode" class="headerlink" title="CFRunLoopRunInMode"></a>CFRunLoopRunInMode</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">SInt32 CFRunLoopRunInMode(CFStringRef modeName, CFTimeInterval seconds, Boolean returnAfterSourceHandled) &#123;     /* DOES CALLOUT */</span><br><span class="line">    CHECK_FOR_FORK();</span><br><span class="line">    return CFRunLoopRunSpecific(CFRunLoopGetCurrent(), modeName, seconds, returnAfterSourceHandled);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>无论是<code>CFRunLoopRun</code>还是<code>CFRunLoopRunInMode</code>都是调用了<code>CFRunLoopRunSpecific</code>。</p>
+<h3 id="CFRunLoopRunSpecific"><a href="#CFRunLoopRunSpecific" class="headerlink" title="CFRunLoopRunSpecific"></a>CFRunLoopRunSpecific</h3><p>这里对<code>CFRunLoopRunSpecific</code>函数的实现做了精简处理：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">SInt32 CFRunLoopRunSpecific(CFRunLoopRef rl, CFStringRef modeName, CFTimeInterval seconds, Boolean returnAfterSourceHandled) &#123;</span><br><span class="line">    // 第1步：通知Observers，进入loop</span><br><span class="line">    __CFRunLoopDoObservers(rl, currentMode, kCFRunLoopEntry);</span><br><span class="line">    // 具体要做的事情</span><br><span class="line">    result = __CFRunLoopRun(rl, currentMode, seconds, returnAfterSourceHandled, previousMode);</span><br><span class="line">    // 第10步：通知Observers，退出loop</span><br><span class="line">    __CFRunLoopDoObservers(rl, currentMode, kCFRunLoopExit);</span><br><span class="line">    </span><br><span class="line">    return result;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="CFRunLoopRun-1"><a href="#CFRunLoopRun-1" class="headerlink" title="__CFRunLoopRun"></a>__CFRunLoopRun</h3><p><code>__CFRunLoopRun</code>可以说是RunLoop运行的核心方法。由于代码过长，这里对代码进行了精简：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br></pre></td><td class="code"><pre><span class="line">static int32_t __CFRunLoopRun(CFRunLoopRef rl, CFRunLoopModeRef rlm, CFTimeInterval seconds, Boolean stopAfterHandle, CFRunLoopModeRef previousMode) &#123;</span><br><span class="line">    int32_t retVal = 0;</span><br><span class="line">    do &#123;</span><br><span class="line">        // 第2步：通知Observers，即将处理Timers</span><br><span class="line">        __CFRunLoopDoObservers(rl, rlm, kCFRunLoopBeforeTimers);</span><br><span class="line">        // 第3步：通知Observers，即将处理Source</span><br><span class="line">        __CFRunLoopDoObservers(rl, rlm, kCFRunLoopBeforeSources);</span><br><span class="line">        // 处理Blocks</span><br><span class="line">        __CFRunLoopDoBlocks(rl, rlm);</span><br><span class="line">        </span><br><span class="line">        // 第4步：处理Source0</span><br><span class="line">        Boolean sourceHandledThisLoop = __CFRunLoopDoSources0(rl, rlm, stopAfterHandle);</span><br><span class="line">        if (sourceHandledThisLoop) &#123;</span><br><span class="line">            // 处理Blocks</span><br><span class="line">            __CFRunLoopDoBlocks(rl, rlm);</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        Boolean poll = sourceHandledThisLoop || (0ULL == timeout_context-&gt;termTSR);</span><br><span class="line">        </span><br><span class="line">        // 第5步：判断有无Source1，有Source1，跳转到handle_msg</span><br><span class="line">        if (__CFRunLoopServiceMachPort(dispatchPort, &amp;msg, sizeof(msg_buffer), &amp;livePort, 0, &amp;voucherState, NULL)) &#123;</span><br><span class="line">            // </span><br><span class="line">            goto handle_msg;</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        didDispatchPortLastTime = false;</span><br><span class="line">        </span><br><span class="line">        // 第6步：通知Observers，即将进入休眠</span><br><span class="line">        __CFRunLoopDoObservers(rl, rlm, kCFRunLoopBeforeWaiting);</span><br><span class="line">        </span><br><span class="line">        // RunLoop休眠</span><br><span class="line">        __CFRunLoopSetSleeping(rl);</span><br><span class="line">        </span><br><span class="line">        CFAbsoluteTime sleepStart = poll ? 0.0 : CFAbsoluteTimeGetCurrent();</span><br><span class="line">        </span><br><span class="line">        // 第7步：等待别的消息来唤醒，如果没有被唤醒那就不会执行下面的代码</span><br><span class="line">        // 这些消息可能是：</span><br><span class="line">        // 一个基于port的Source的事件。</span><br><span class="line">        // 一个Timer到时间了</span><br><span class="line">        // RunLoop自身的超时时间到了</span><br><span class="line">        // 被其他什么调用者手动唤醒</span><br><span class="line">        __CFRunLoopServiceMachPort(waitSet,</span><br><span class="line">                                   &amp;msg,</span><br><span class="line">                                   sizeof(msg_buffer),</span><br><span class="line">                                   &amp;livePort, poll ? 0 : TIMEOUT_INFINITY,</span><br><span class="line">                                   &amp;voucherState,</span><br><span class="line">                                   &amp;voucherCopy);</span><br><span class="line">        </span><br><span class="line">        rl-&gt;_sleepTime += (poll ? 0.0 : (CFAbsoluteTimeGetCurrent() - sleepStart));</span><br><span class="line">        </span><br><span class="line">        // 取消RunLoop的休眠</span><br><span class="line">        __CFRunLoopUnsetSleeping(rl);</span><br><span class="line">        </span><br><span class="line">        // 第8步：通知Observers，结束休眠</span><br><span class="line">        __CFRunLoopDoObservers(rl, rlm, kCFRunLoopAfterWaiting);</span><br><span class="line">    </span><br><span class="line">    // 判断RunLoop被唤醒的方式，并处理对应的事件</span><br><span class="line">    handle_msg:;</span><br><span class="line">        // 判断RunLoop被唤醒的方式</span><br><span class="line">        // MACH_PORT_NULL == livePort和livePort == rl-&gt;_wakeUpPort两种情况什么都不做，省略</span><br><span class="line">        // 被timer唤醒</span><br><span class="line">        else if (rlm-&gt;_timerPort != MACH_PORT_NULL &amp;&amp; livePort == rlm-&gt;_timerPort) &#123;</span><br><span class="line">            // 处理timer</span><br><span class="line">            __CFRunLoopDoTimers(rl, rlm, mach_absolute_time());</span><br><span class="line">        &#125;</span><br><span class="line">        // 被GCD唤醒</span><br><span class="line">        else if (livePort == dispatchPort) &#123;</span><br><span class="line">            // 处理GCD</span><br><span class="line">            __CFRUNLOOP_IS_SERVICING_THE_MAIN_DISPATCH_QUEUE__(msg);</span><br><span class="line">        &#125;</span><br><span class="line">        // 被Source1唤醒</span><br><span class="line">        else &#123;</span><br><span class="line">            // 处理Source1</span><br><span class="line">            __CFRunLoopDoSource1(rl, rlm, rls, msg, msg-&gt;msgh_size, &amp;reply) || sourceHandledThisLoop;</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        // 处理Blocks</span><br><span class="line">        __CFRunLoopDoBlocks(rl, rlm);</span><br><span class="line">        </span><br><span class="line">        // 第9步：决定RunLoop的返回值</span><br><span class="line">        if (sourceHandledThisLoop &amp;&amp; stopAfterHandle) &#123;</span><br><span class="line">            // 处理完事件就返回</span><br><span class="line">            retVal = kCFRunLoopRunHandledSource;</span><br><span class="line">        &#125; else if (timeout_context-&gt;termTSR &lt; mach_absolute_time()) &#123;</span><br><span class="line">            // 超时</span><br><span class="line">            retVal = kCFRunLoopRunTimedOut;</span><br><span class="line">        &#125; else if (__CFRunLoopIsStopped(rl)) &#123;</span><br><span class="line">            // RunLoop终止</span><br><span class="line">            __CFRunLoopUnsetStopped(rl);</span><br><span class="line">            retVal = kCFRunLoopRunStopped;</span><br><span class="line">        &#125; else if (rlm-&gt;_stopped) &#123;</span><br><span class="line">            // mode终止</span><br><span class="line">            rlm-&gt;_stopped = false;</span><br><span class="line">            retVal = kCFRunLoopRunStopped;</span><br><span class="line">        &#125; else if (__CFRunLoopModeIsEmpty(rl, rlm, previousMode)) &#123;</span><br><span class="line">            retVal = kCFRunLoopRunFinished;</span><br><span class="line">        &#125;    </span><br><span class="line">    &#125; while (0 == retVal);</span><br><span class="line">    </span><br><span class="line">    return retVal;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>RunLoop运行流程图：<img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/RunLoop_run.png" alt="RunLoop_run"></p>
+<p>上述过程中有两个地方要注意：</p>
+<p><strong>1.RunLoop处理GCD事件</strong></p>
+<p>在大多数情况，RunLoop和GCD各自有这自己的执行流程，不会出现依赖，但是有一种情况比较特殊。先看以下代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">dispatch_async(dispatch_get_global_queue(0, 0), ^&#123;</span><br><span class="line">    dispatch_async(dispatch_get_main_queue(), ^&#123;</span><br><span class="line">        NSLog(@&quot;1111111&quot;);</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+<p>打印函数调用栈：<br><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/RunLoop%E5%A4%84%E7%90%86GCD.jpg" alt="RunLoop处理GCD事件"></p>
+<p>使用GCD异步操作的时候，我们在一个子线程处理完一些事情后，要返回主线程处理事情的时候，这时候需要依赖于RunLoop。内部会调用<code>__CFRUNLOOP_IS_SERVICING_THE_MAIN_DISPATCH_QUEUE__</code>函数。</p>
+<p><strong>2.RunLoop休眠</strong></p>
+<p>当RunLoop一旦休眠意味着CPU不会分配任何资源，那线程也就没有事情干了，也进入休眠。RunLoop休眠内部是调用了<code>mach_msg()</code>函数。操作系统中有内核层面的API和应用层面的API。内核层面的API是不会轻易暴露出来，<code>mach_msg()</code>可以理解为是应用层面的API，告诉内核休眠该线程休眠。一旦接受到系统事件，也会转化成内核API，告诉内核需要唤醒该线程，那么又可以执行应用层API了。所以RunLoop的休眠可以看成是用户状态到内核状态的切换，而唤醒RunLoop就是内核状态到用户状态的切换。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>由于总结的东西相对来说比较多，会以面试题的形式单独写一篇<a href="https://www.neroxie.com/2019/07/26/RunLoop%E9%9D%A2%E8%AF%95%E9%A2%98%E5%88%86%E6%9E%90/">RunLoop面试题分析</a>来总结</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><p>《程序员的自我修养》<br><a href="https://opensource.apple.com/tarballs/CF/" target="_blank" rel="noopener">CoreFoundation源代码</a><br><a href="https://blog.ibireme.com/2015/05/18/runloop/" target="_blank" rel="noopener">深入理解RunLoop</a><br><a href="https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/Multithreading/RunLoopManagement/RunLoopManagement.html#//apple_ref/doc/uid/10000057i-CH16-SW23" target="_blank" rel="noopener">苹果文档–RunLoop</a></p>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+      <div>
+        <ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者：</strong>
+    NeroXie
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="http://www.neroxie.com/2019/04/24/重拾RunLoop原理/" title="重拾RunLoop原理">http://www.neroxie.com/2019/04/24/重拾RunLoop原理/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>
+    本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/3.0/" rel="external nofollow" target="_blank">CC BY-NC-SA 3.0</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Objective-C/" rel="tag"># Objective-C</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2019/03/12/OC消息机制和super关键字/" rel="next" title="OC消息机制和super关键字">
+                <i class="fa fa-chevron-left"></i> OC消息机制和super关键字
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2019/05/14/React-Native项目-NNHybrid/" rel="prev" title="React Native项目--NNHybrid">
+                React Native项目--NNHybrid <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="gitalk-container"></div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="https://avatars1.githubusercontent.com/u/17306472?s=460&v=4F" alt="NeroXie">
+            
+              <p class="site-author-name" itemprop="name">NeroXie</p>
+              <p class="site-description motion-element" itemprop="description">May the Force be with you</p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">24</span>
+                  <span class="site-state-item-name">日志</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                <a href="/categories/index.html">
+                  <span class="site-state-item-count">10</span>
+                  <span class="site-state-item-name">分类</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                <a href="/tags/index.html">
+                  <span class="site-state-item-count">6</span>
+                  <span class="site-state-item-name">标签</span>
+                </a>
+              </div>
+            
+
+          </nav>
+
+          
+
+          
+            <div class="links-of-author motion-element">
+                
+                  <span class="links-of-author-item">
+                    <a href="https://github.com/YiHuaXie" target="_blank" title="GitHub">
+                      
+                        <i class="fa fa-fw fa-github"></i>GitHub</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="mailto:xyh30902@163.com" target="_blank" title="E-Mail">
+                      
+                        <i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="https://juejin.im/user/595c8f866fb9a06bbf6fecba" target="_blank" title="掘金">
+                      
+                        <i class="fa fa-fw fa-globe"></i>掘金</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="https://www.jianshu.com/u/17c52abac13c" target="_blank" title="简书">
+                      
+                        <i class="fa fa-fw fa-heartbeat"></i>简书</a>
+                  </span>
+                
+            </div>
+          
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#RunLoop的获取"><span class="nav-number">1.</span> <span class="nav-text">RunLoop的获取</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#RunLoop与线程之间的关系"><span class="nav-number">2.</span> <span class="nav-text">RunLoop与线程之间的关系</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#RunLoop的创建"><span class="nav-number">3.</span> <span class="nav-text">RunLoop的创建</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#RunLoop的释放"><span class="nav-number">4.</span> <span class="nav-text">RunLoop的释放</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#RunLoop相关的类与作用"><span class="nav-number">5.</span> <span class="nav-text">RunLoop相关的类与作用</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#CFRunLoopRef"><span class="nav-number">5.1.</span> <span class="nav-text">CFRunLoopRef</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CFRunLoopModeRef"><span class="nav-number">5.2.</span> <span class="nav-text">CFRunLoopModeRef</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#RunLoop的Mode"><span class="nav-number">5.2.1.</span> <span class="nav-text">RunLoop的Mode</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#CommonModes"><span class="nav-number">5.2.2.</span> <span class="nav-text">CommonModes</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CFRunLoopSourceRef"><span class="nav-number">5.3.</span> <span class="nav-text">CFRunLoopSourceRef</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Source0"><span class="nav-number">5.3.1.</span> <span class="nav-text">Source0</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Source1"><span class="nav-number">5.3.2.</span> <span class="nav-text">Source1</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CFRunLoopObserverRef"><span class="nav-number">5.4.</span> <span class="nav-text">CFRunLoopObserverRef</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#CFRunLoopTimerRef"><span class="nav-number">5.4.1.</span> <span class="nav-text">CFRunLoopTimerRef</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#RunLoop运行"><span class="nav-number">6.</span> <span class="nav-text">RunLoop运行</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#CFRunLoopRun"><span class="nav-number">6.1.</span> <span class="nav-text">CFRunLoopRun</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CFRunLoopRunInMode"><span class="nav-number">6.2.</span> <span class="nav-text">CFRunLoopRunInMode</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CFRunLoopRunSpecific"><span class="nav-number">6.3.</span> <span class="nav-text">CFRunLoopRunSpecific</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CFRunLoopRun-1"><span class="nav-number">6.4.</span> <span class="nav-text">__CFRunLoopRun</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">7.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考"><span class="nav-number">8.</span> <span class="nav-text">参考</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2018 &mdash; <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">NeroXie</span>
+
+  
+</div>
+
+
+  <div class="powered-by">NeroXie的个人博客</div>
+
+
+
+
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+<div class="theme-info">
+  <div class="powered-by"></div>
+  <span class="post-count">博客全站共70.1k字</span>
+</div>
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/canvas-nest/canvas-nest.min.js"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.4"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+  <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+  <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+  <script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+   <script type="text/javascript">
+        var gitalk = new Gitalk({
+          clientID: '5e5c6074ea6483a9380d',
+          clientSecret: 'd16d85928f70d31702f591a6ba8c47b3b8fe432c',
+          repo: 'YiHuaXie.github.io',
+          owner: 'YiHuaXie',
+          admin: ['YiHuaXie'],
+          id: md5(location.pathname),
+         labels: 'gitalk'.split(',').filter(l => l),
+          perPage: 15,
+          pagerDirection: 'last',
+          createIssueManually: false,
+          distractionFreeMode: true
+        })
+        gitalk.render('gitalk-container')           
+       </script>
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

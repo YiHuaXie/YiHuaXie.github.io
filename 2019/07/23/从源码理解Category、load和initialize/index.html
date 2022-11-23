@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link href="/lib/pace/pace-theme-flash.min.css?v=1.0.2" rel="stylesheet">
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="Objective-C,">
+
+
+
+
+
+
+
+
+
+
+<meta name="description" content="通过clang、CF源代码和代码实验分析Category、load、initialize的底层实现。">
+<meta name="keywords" content="Objective-C">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从源码理解Category、load和initialize">
+<meta property="og:url" content="http://www.neroxie.com/2019/07/23/从源码理解Category、load和initialize/index.html">
+<meta property="og:site_name" content="NeroXie的个人博客">
+<meta property="og:description" content="通过clang、CF源代码和代码实验分析Category、load、initialize的底层实现。">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/category_attachList.jpg">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/category%E7%BC%96%E8%AF%91%E9%A1%BA%E5%BA%8F.jpg">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/category_load%E9%A1%BA%E5%BA%8F.jpg">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/category_initialize%E9%A1%BA%E5%BA%8F.jpg">
+<meta property="og:updated_time" content="2022-11-23T20:14:09.309Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="从源码理解Category、load和initialize">
+<meta name="twitter:description" content="通过clang、CF源代码和代码实验分析Category、load、initialize的底层实现。">
+<meta name="twitter:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/category_attachList.jpg">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://www.neroxie.com/2019/07/23/从源码理解Category、load和initialize/">
+
+
+
+
+
+  <title>从源码理解Category、load和initialize | NeroXie的个人博客</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+    <a href="https://github.com/YiHuaXie" class="github-corner" aria-label="View source on GitHub"><svg width="80" height="80" viewbox="0 0 250 250" style="fill:#151513; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg></a><style>.github-corner:hover .octo-arm{animation:octocat-wave 560ms ease-in-out}@keyframes octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}@media (max-width:500px){.github-corner:hover .octo-arm{animation:none}.github-corner .octo-arm{animation:octocat-wave 560ms ease-in-out}}</style>
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta custom-logo">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">NeroXie的个人博客</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://www.neroxie.com/2019/07/23/从源码理解Category、load和initialize/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="NeroXie">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="https://avatars1.githubusercontent.com/u/17306472?s=460&v=4F">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="NeroXie的个人博客">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">从源码理解Category、load和initialize</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-07-23T14:17:30+00:00">
+                2019-07-23
+              </time>
+            
+
+            
+              <span class="post-meta-divider">|</span>
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-check-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">更新于&#58;</span>
+              
+              <time title="更新于" itemprop="dateModified" datetime="2022-11-23T20:14:09+00:00">
+                2022-11-23
+              </time>
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Runtime/" itemprop="url" rel="index">
+                    <span itemprop="name">Runtime</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+            <div class="post-wordcount">
+              
+                
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">字数统计&#58;</span>
+                
+                <span title="字数统计">
+                  5.7k
+                </span>
+              
+
+              
+
+              
+            </div>
+          
+
+          
+              <div class="post-description">
+                  通过clang、CF源代码和代码实验分析Category、load、initialize的底层实现。
+              </div>
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="Category"><a href="#Category" class="headerlink" title="Category"></a>Category</h2><p>Objective-C中的Category就是对装饰模式的一种具体实现。它的主要作用是在不改变原有类的前提下，动态地给这个类添加一些方法。</p>
+<p>先看一段代码，后面的关于Category的分析都是基于以下代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line">// CategoryTestModel.h </span><br><span class="line">@interface CategoryTestModel : NSObject</span><br><span class="line"></span><br><span class="line">- (void)ins_method1;</span><br><span class="line">+ (void)cls_method1;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">@interface CategoryTestModel(NN)</span><br><span class="line"></span><br><span class="line">- (void)ins_method2;</span><br><span class="line">- (void)ins_method22;</span><br><span class="line">+ (void)cls_method2;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">@interface CategoryTestModel(Nero)</span><br><span class="line"></span><br><span class="line">- (void)ins_method3;</span><br><span class="line">+ (void)cls_method3;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">// CategoryTestModel.m</span><br><span class="line">@implementation CategoryTestModel</span><br><span class="line"></span><br><span class="line">- (void)ins_method1 &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">+ (void)cls_method1 &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">@implementation CategoryTestModel(NN)</span><br><span class="line"></span><br><span class="line">- (void)ins_method2 &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (void)ins_method22 &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">+ (void)cls_method2 &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">@implementation CategoryTestModel(Nero)</span><br><span class="line"></span><br><span class="line">- (void)ins_method3 &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">+ (void)cls_method3 &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br></pre></td></tr></table></figure>
+<p>上面的代码声明了一个<code>CategoryTestModel</code>的类以及<code>NN</code>和<code>Nero</code>两个分类，接着我们使用如下命令将这些代码转化成C++代码：<br><code>xcrun -sdk iphoneos clang -arch arm64 -rewrite-objc CategoryTestModel.m</code></p>
+<h3 id="Category的底层结构"><a href="#Category的底层结构" class="headerlink" title="Category的底层结构"></a>Category的底层结构</h3><p>在C++代码中，我们会发现有以下关键代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">// NN分类</span><br><span class="line">static struct _category_t _OBJC_$_CATEGORY_CategoryTestModel_$_NN __attribute__ ((used, section (&quot;__DATA,__objc_const&quot;))) = </span><br><span class="line">&#123;</span><br><span class="line">	&quot;CategoryTestModel&quot;,</span><br><span class="line">	0, // &amp;OBJC_CLASS_$_CategoryTestModel,</span><br><span class="line">	(const struct _method_list_t *)&amp;_OBJC_$_CATEGORY_INSTANCE_METHODS_CategoryTestModel_$_NN,</span><br><span class="line">	(const struct _method_list_t *)&amp;_OBJC_$_CATEGORY_CLASS_METHODS_CategoryTestModel_$_NN,</span><br><span class="line">	0,</span><br><span class="line">	0,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">// Nero分类</span><br><span class="line">static struct _category_t _OBJC_$_CATEGORY_CategoryTestModel_$_Nero __attribute__ ((used, section (&quot;__DATA,__objc_const&quot;))) = </span><br><span class="line">&#123;</span><br><span class="line">	&quot;CategoryTestModel&quot;,</span><br><span class="line">	0, // &amp;OBJC_CLASS_$_CategoryTestModel,</span><br><span class="line">	(const struct _method_list_t *)&amp;_OBJC_$_CATEGORY_INSTANCE_METHODS_CategoryTestModel_$_Nero,</span><br><span class="line">	(const struct _method_list_t *)&amp;_OBJC_$_CATEGORY_CLASS_METHODS_CategoryTestModel_$_Nero,</span><br><span class="line">	0,</span><br><span class="line">	0,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>从源码中可以知道，分类转化成了<code>_category_t</code>类型的结构体，并且有几个分类，就会对应生成几个这样的结构体。这里有一点要说明一下，在objc的代码中也可以找到关于分类的结构体介绍，结构体名叫<code>category_t</code>，并成员变量稍微有点差异，但是不影响对底层实现的学习。</p>
+<p><code>_category_t</code>的定义如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">struct _category_t &#123;</span><br><span class="line">	const char *name;</span><br><span class="line">	struct _class_t *cls;</span><br><span class="line">	const struct _method_list_t *instance_methods;</span><br><span class="line">	const struct _method_list_t *class_methods;</span><br><span class="line">	const struct _protocol_list_t *protocols;</span><br><span class="line">	const struct _prop_list_t *properties;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>从代码中我们可以看出<code>_category_t</code>结构体中存放着类名，主类名，对象方法列表，类方法列表，协议列表，以及属性列表。</p>
+<p>在我们声明的分类中，只有对象方法和类方法，所以我们看一下<code>_method_list_t</code>。<br><code>_method_list_t</code>的定义如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">// 对象方法存储</span><br><span class="line">static struct /*_method_list_t*/ &#123;</span><br><span class="line">	unsigned int entsize;  // sizeof(struct _objc_method)</span><br><span class="line">	unsigned int method_count;</span><br><span class="line">	struct _objc_method method_list[2];</span><br><span class="line">&#125; _OBJC_$_CATEGORY_INSTANCE_METHODS_CategoryTestModel_$_NN __attribute__ ((used, section (&quot;__DATA,__objc_const&quot;))) = &#123;</span><br><span class="line">	sizeof(_objc_method),</span><br><span class="line">	2,</span><br><span class="line">	&#123;&#123;(struct objc_selector *)&quot;ins_method2&quot;, &quot;v16@0:8&quot;, (void *)_I_CategoryTestModel_NN_ins_method2&#125;,</span><br><span class="line">	&#123;(struct objc_selector *)&quot;ins_method22&quot;, &quot;v16@0:8&quot;, (void *)_I_CategoryTestModel_NN_ins_method22&#125;&#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">// 类方法存储</span><br><span class="line">static struct /*_method_list_t*/ &#123;</span><br><span class="line">	unsigned int entsize;  // sizeof(struct _objc_method)</span><br><span class="line">	unsigned int method_count;</span><br><span class="line">	struct _objc_method method_list[1];</span><br><span class="line">&#125; _OBJC_$_CATEGORY_CLASS_METHODS_CategoryTestModel_$_NN __attribute__ ((used, section (&quot;__DATA,__objc_const&quot;))) = &#123;</span><br><span class="line">	sizeof(_objc_method),</span><br><span class="line">	1,</span><br><span class="line">	&#123;&#123;(struct objc_selector *)&quot;cls_method2&quot;, &quot;v16@0:8&quot;, (void *)_C_CategoryTestModel_NN_cls_method2&#125;&#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>通过上面的一系列源码，我们知道了如下几点：</p>
+<ul>
+<li>Category的底层结构是一个<code>_category_t</code>的结构体，我们在分类中声明的方法、属性等都会存在对应的字段中；</li>
+<li>有多少个分类就会有多少的<code>_category_t</code>结构体。</li>
+</ul>
+<p>到这里就不免会出现一个疑问：<br>在我们将代码转化成C++代码后，一个类有其主类<code>_class_t</code>还有N个<code>_category_t</code>的分类。主类方法存在主类的结构中，分类方法存在分类的结构体中。我们打印其方法列表的时候，分类方法也会打印出来，另外我们在日常开发中，有时也会使用分类去覆盖掉主类实现的方法，那这又是为什么？上面所讲的只是编译期的过程，Category的实现还依赖于Runtime。</p>
+<p>这里插一个题外话，在日常开发的时候，在一些比较麻烦的时候我们可能会使用方法交叉，我们也知道方法交叉是比较危险的手段，还是少用为妙。而上面提到的使用分类去覆盖掉主类实现的方法也是能减少方法交叉的使用。</p>
+<h3 id="Category在运行时中"><a href="#Category在运行时中" class="headerlink" title="Category在运行时中"></a>Category在运行时中</h3><p>这里使用<code>objc4-750.1</code>的源代码，你可以通过<a href="https://opensource.apple.com/tarballs/objc4/" target="_blank" rel="noopener">这里</a>下载。在<code>objc-runtime-new.m</code>中找到一个<code>_read_images</code>的函数，由于代码很长，这里只贴出关于分类的实现：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br></pre></td><td class="code"><pre><span class="line">void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int unoptimizedTotalClasses)</span><br><span class="line">&#123;</span><br><span class="line">    // 这里只显示category的实现</span><br><span class="line">        // Discover categories. </span><br><span class="line">    for (EACH_HEADER) &#123;</span><br><span class="line">        // 二维数组存在分类结构体变量</span><br><span class="line">        category_t **catlist = </span><br><span class="line">            _getObjc2CategoryList(hi, &amp;count);</span><br><span class="line">        // 判断是否有类属性</span><br><span class="line">        bool hasClassProperties = hi-&gt;info()-&gt;hasCategoryClassProperties();</span><br><span class="line"></span><br><span class="line">        for (i = 0; i &lt; count; i++) &#123;</span><br><span class="line">            category_t *cat = catlist[i];</span><br><span class="line">            // 获取分类的主类</span><br><span class="line">            Class cls = remapClass(cat-&gt;cls);</span><br><span class="line">            // 主类不存在进行下一次循环</span><br><span class="line">            if (!cls) &#123;</span><br><span class="line">                // Category&apos;s target class is missing (probably weak-linked).</span><br><span class="line">                // Disavow any knowledge of this category.</span><br><span class="line">                catlist[i] = nil;</span><br><span class="line">                if (PrintConnecting) &#123;</span><br><span class="line">                    _objc_inform(&quot;CLASS: IGNORING category \?\?\?(%s) %p with &quot;</span><br><span class="line">                                 &quot;missing weak-linked target class&quot;, </span><br><span class="line">                                 cat-&gt;name, cat);</span><br><span class="line">                &#125;</span><br><span class="line">                continue;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            // Process this category. </span><br><span class="line">            // First, register the category with its target class. </span><br><span class="line">            // Then, rebuild the class&apos;s method lists (etc) if </span><br><span class="line">            // the class is realized. </span><br><span class="line">            bool classExists = NO;</span><br><span class="line">            // 分类中存在对象方法，协议或者属性，</span><br><span class="line">            if (cat-&gt;instanceMethods ||  cat-&gt;protocols  </span><br><span class="line">                ||  cat-&gt;instanceProperties) </span><br><span class="line">            &#123;</span><br><span class="line">                // 给主类添加独立的分类</span><br><span class="line">                addUnattachedCategoryForClass(cat, cls, hi);</span><br><span class="line">                // 类是否实现</span><br><span class="line">                if (cls-&gt;isRealized()) &#123;</span><br><span class="line">                    // 对类进行方法化</span><br><span class="line">                    remethodizeClass(cls);</span><br><span class="line">                    classExists = YES;</span><br><span class="line">                &#125;</span><br><span class="line">                if (PrintConnecting) &#123;</span><br><span class="line">                    _objc_inform(&quot;CLASS: found category -%s(%s) %s&quot;, </span><br><span class="line">                                 cls-&gt;nameForLogging(), cat-&gt;name, </span><br><span class="line">                                 classExists ? &quot;on existing class&quot; : &quot;&quot;);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            // 分类中存在类方法，协议或者类属性</span><br><span class="line">            if (cat-&gt;classMethods  ||  cat-&gt;protocols  </span><br><span class="line">                ||  (hasClassProperties &amp;&amp; cat-&gt;_classProperties)) </span><br><span class="line">            &#123;</span><br><span class="line">                // 给主类的元类添加独立的分类</span><br><span class="line">                addUnattachedCategoryForClass(cat, cls-&gt;ISA(), hi);</span><br><span class="line">                // 主类的元类是否实现</span><br><span class="line">                if (cls-&gt;ISA()-&gt;isRealized()) &#123;</span><br><span class="line">                    // 对元类进行方法化</span><br><span class="line">                    remethodizeClass(cls-&gt;ISA());</span><br><span class="line">                &#125;</span><br><span class="line">                if (PrintConnecting) &#123;</span><br><span class="line">                    _objc_inform(&quot;CLASS: found category +%s(%s)&quot;, </span><br><span class="line">                                 cls-&gt;nameForLogging(), cat-&gt;name);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ts.log(&quot;IMAGE TIMES: discover categories&quot;);  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ol>
+<li>通过<code>_getObjc2CategoryList</code>函数获取到分类列表；</li>
+<li>遍历分类列表获取其中的方法，协议，属性等；</li>
+<li>调用<code>remethodizeClass(cls)</code>函数对类对象（分类的主类）重新方法化；</li>
+<li>调用<code>remethodizeClass(cls-&gt;ISA());</code>对类对象的元类重新方法化；</li>
+</ol>
+<p>可以看到最终都调用了<code>remethodizeClass</code>函数，接着我们看一下<code>remethodizeClass</code>的实现：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">static void remethodizeClass(Class cls)</span><br><span class="line">&#123;</span><br><span class="line">    category_list *cats;</span><br><span class="line">    bool isMeta;</span><br><span class="line"></span><br><span class="line">    runtimeLock.assertLocked();</span><br><span class="line"></span><br><span class="line">    isMeta = cls-&gt;isMetaClass();</span><br><span class="line"></span><br><span class="line">    // Re-methodizing: check for more categories</span><br><span class="line">    if ((cats = unattachedCategoriesForClass(cls, false/*not realizing*/))) &#123;</span><br><span class="line">        if (PrintConnecting) &#123;</span><br><span class="line">            _objc_inform(&quot;CLASS: attaching categories to class &apos;%s&apos; %s&quot;, </span><br><span class="line">                         cls-&gt;nameForLogging(), isMeta ? &quot;(meta)&quot; : &quot;&quot;);</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        // 附加分类</span><br><span class="line">        attachCategories(cls, cats, true /*flush caches*/);        </span><br><span class="line">        free(cats);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>remethodizeClass</code>的实现主要依赖于<code>attachCategories</code>，从函数名我们可以知道这个函数，就是用来给类或者元类添加分类中存放的数据。<code>attachCategories</code>的实现如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br></pre></td><td class="code"><pre><span class="line">static void </span><br><span class="line">attachCategories(Class cls, category_list *cats, bool flush_caches)</span><br><span class="line">&#123;</span><br><span class="line">    if (!cats) return;</span><br><span class="line">    if (PrintReplacedMethods) printReplacements(cls, cats);</span><br><span class="line"></span><br><span class="line">    bool isMeta = cls-&gt;isMetaClass();</span><br><span class="line"></span><br><span class="line">    // fixme rearrange to remove these intermediate allocations</span><br><span class="line">    // 方法列表 [[方法],[方法，方法],[方法]]</span><br><span class="line">    method_list_t **mlists = (method_list_t **)</span><br><span class="line">        malloc(cats-&gt;count * sizeof(*mlists));</span><br><span class="line">    // 属性列表</span><br><span class="line">    property_list_t **proplists = (property_list_t **)</span><br><span class="line">        malloc(cats-&gt;count * sizeof(*proplists));</span><br><span class="line">    // 协议列表</span><br><span class="line">    protocol_list_t **protolists = (protocol_list_t **)</span><br><span class="line">        malloc(cats-&gt;count * sizeof(*protolists));</span><br><span class="line"></span><br><span class="line">    // Count backwards through cats to get newest categories first</span><br><span class="line">    int mcount = 0;</span><br><span class="line">    int propcount = 0;</span><br><span class="line">    int protocount = 0;</span><br><span class="line">    // 分类列表的个数代表有多少个分类</span><br><span class="line">    int i = cats-&gt;count;</span><br><span class="line">    bool fromBundle = NO;</span><br><span class="line">    while (i--) &#123;</span><br><span class="line">        auto&amp; entry = cats-&gt;list[i];</span><br><span class="line"></span><br><span class="line">        // 根据是否是元类返回分类结构体中的类方法列表或者对象方法列表</span><br><span class="line">        method_list_t *mlist = entry.cat-&gt;methodsForMeta(isMeta);</span><br><span class="line">        if (mlist) &#123;</span><br><span class="line">            mlists[mcount++] = mlist;</span><br><span class="line">            fromBundle |= entry.hi-&gt;isBundle();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        // 根据是否是元类返回分类结构体中的类属性列表或者属性列表</span><br><span class="line">        property_list_t *proplist = </span><br><span class="line">            entry.cat-&gt;propertiesForMeta(isMeta, entry.hi);</span><br><span class="line">        if (proplist) &#123;</span><br><span class="line">            proplists[propcount++] = proplist;</span><br><span class="line">        &#125;</span><br><span class="line">     </span><br><span class="line">        protocol_list_t *protolist = entry.cat-&gt;protocols;</span><br><span class="line">        if (protolist) &#123;</span><br><span class="line">            protolists[protocount++] = protolist;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    // rw代表类对象，里面有一个方法列表和属性列表的字段</span><br><span class="line">    auto rw = cls-&gt;data();</span><br><span class="line"></span><br><span class="line">    prepareMethodLists(cls, mlists, mcount, NO, fromBundle);</span><br><span class="line">    // 将上面合并后的分类方法合并到类对象的方法列表中，并释放mlists</span><br><span class="line">    rw-&gt;methods.attachLists(mlists, mcount);</span><br><span class="line">    free(mlists);</span><br><span class="line">    // 是否刷新缓存</span><br><span class="line">    if (flush_caches  &amp;&amp;  mcount &gt; 0) flushCaches(cls);</span><br><span class="line"></span><br><span class="line">    // 将所有分类属性合并到类对象的属性列表中</span><br><span class="line">    rw-&gt;properties.attachLists(proplists, propcount);</span><br><span class="line">    free(proplists);</span><br><span class="line"></span><br><span class="line">    // 协议也是如此</span><br><span class="line">    rw-&gt;protocols.attachLists(protolists, protocount);</span><br><span class="line">    free(protolists);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>从上面的代码可以看到，方法、属性、协议的合并都使用了<code>attachLists</code>方法，其实现如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">void attachLists(List* const * addedLists, uint32_t addedCount) &#123;</span><br><span class="line">    if (addedCount == 0) return;</span><br><span class="line">    </span><br><span class="line">    if (hasArray()) &#123;</span><br><span class="line">        // many lists -&gt; many lists</span><br><span class="line">        uint32_t oldCount = array()-&gt;count;</span><br><span class="line">        uint32_t newCount = oldCount + addedCount;</span><br><span class="line">        // 重新分配内存，数组扩容</span><br><span class="line">        setArray((array_t *)realloc(array(), array_t::byteSize(newCount)));</span><br><span class="line">        array()-&gt;count = newCount;</span><br><span class="line">        // array()-&gt;lists是原来的数组</span><br><span class="line">        // memmove的作用就是内存移动，将原来的数组向后拖动oldCount * sizeof(array()-&gt;lists[0])个位置</span><br><span class="line">        memmove(array()-&gt;lists + addedCount, array()-&gt;lists,</span><br><span class="line">                oldCount * sizeof(array()-&gt;lists[0]));</span><br><span class="line">        // memcpy的作用是内存拷贝，将新数组拷贝到前面空出的位置</span><br><span class="line">        memcpy(array()-&gt;lists, addedLists,</span><br><span class="line">               addedCount * sizeof(array()-&gt;lists[0]));</span><br><span class="line">    &#125;</span><br><span class="line">    else if (!list  &amp;&amp;  addedCount == 1) &#123;</span><br><span class="line">        // 0 lists -&gt; 1 list</span><br><span class="line">        list = addedLists[0];</span><br><span class="line">    &#125;</span><br><span class="line">    else &#123;</span><br><span class="line">        // 1 list -&gt; many lists</span><br><span class="line">        List* oldList = list;</span><br><span class="line">        uint32_t oldCount = oldList ? 1 : 0;</span><br><span class="line">        uint32_t newCount = oldCount + addedCount;</span><br><span class="line">        setArray((array_t *)malloc(array_t::byteSize(newCount)));</span><br><span class="line">        array()-&gt;count = newCount;</span><br><span class="line">        if (oldList) array()-&gt;lists[addedCount] = oldList;</span><br><span class="line">        memcpy(array()-&gt;lists, addedLists,</span><br><span class="line">               addedCount * sizeof(array()-&gt;lists[0]));</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>关于上述关于合并的实现分成了三种情况，但是思想都接近，简单的说就是数组合并。分析这段代码是为了解释为什么我们可以在分类中重写方法来覆盖主类的实现。</p>
+<p>这里我们就以分类方法在<code>many lists -&gt; many lists</code>的情况下来分析一下这个流程。</p>
+<ol>
+<li>首页分配一块内存用来数组扩容，扩容后的长度就是类对象的方法列表的长度加上分类方法列表的长度；</li>
+<li>调用<code>memmove</code>，将原来的方法列表向后拖动oldCount * sizeof(array()-&gt;lists[0])个位置；</li>
+<li>调用<code>memcpy</code>，将分类方法列表拷贝在前面空出的位置。</li>
+</ol>
+<p>用一张图表示下上面的情况：<br><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/category_attachList.jpg" alt="category_attachList"></p>
+<h2 id="Categoty总结"><a href="#Categoty总结" class="headerlink" title="Categoty总结"></a>Categoty总结</h2><p>这里再总结一下Categoty的一些知识点：</p>
+<ol>
+<li>Category在编译时期会转化成<code>_category_t</code>的结构体，我们在分类中声明的方法、属性等都会存在对应的字段中；</li>
+<li>在程序运行时，runtime会将Category的数据合并到类对象或者元类对象中； </li>
+<li>分类方法列表在主类方法列表的前面，所以<strong>分类的同名方法会被优先被调用</strong>或者<strong>分类中重写方法能覆盖主类的实现</strong>。</li>
+<li>分类列表中越后面的分类即越后面参与编译的分类，其方法列表中的方法会越优先被调用。</li>
+<li><strong>分类中的属性也是在运行时的时候完成的</strong>，这要区别于Extension。Extension可以理解为将.h文件中的共有属性声明在.m中变成私有的，那这些属性也是在编译期完成的。所以Category和Extension的区别就是<strong>Extension在编译时期，它的数据就包含在类信息中，Category中的数据是在运行时才合并到类中</strong>。</li>
+</ol>
+<p>但是有两个方法比较特殊，分别是<code>load</code>和<code>initialize</code>，它们的执行结果和一般方法有区别，所以单独拿出来分析。</p>
+<h2 id="load"><a href="#load" class="headerlink" title="load"></a>load</h2><p>首先看一段代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line">// FatherA</span><br><span class="line">@implementation FatherA</span><br><span class="line"></span><br><span class="line">+ (void)load &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">@implementation FatherA(NN)</span><br><span class="line"></span><br><span class="line">+ (void)load &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">@implementation FatherA(Nero)</span><br><span class="line"></span><br><span class="line">+ (void)load &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">// SonA</span><br><span class="line">@implementation SonA</span><br><span class="line"></span><br><span class="line">+ (void)load &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">@implementation SonA(NN)</span><br><span class="line"></span><br><span class="line">+ (void)load &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">@implementation SonA(Nero)</span><br><span class="line"></span><br><span class="line">+ (void)load &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">// FatherB</span><br><span class="line">@implementation FatherB</span><br><span class="line"></span><br><span class="line">+ (void)load &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// SonB</span><br><span class="line">@implementation SonB</span><br><span class="line"></span><br><span class="line">+ (void)load &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>编译顺序如下：<br><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/category%E7%BC%96%E8%AF%91%E9%A1%BA%E5%BA%8F.jpg" alt="load编译顺序"></p>
+<p>执行结果如下：<br><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/category_load%E9%A1%BA%E5%BA%8F.jpg" alt="load执行顺序"></p>
+<p>以<code>FatherA</code>为例，我们知道<code>load</code>方法会在runtime加载类、分类的时候进行调用，根据上面提到的分类会覆盖主类的同名方法（这里并不是真的覆盖，而是优先于主类先调用），<code>load</code>函数应该只是被调用一次，但是通过上面的代码我们看到<code>load</code>方法被调用了三次，这是为什么呢？</p>
+<p><code>load</code>方法的实现在<code>objc-runtime-new.m</code>中找到一个<code>load_images</code>的函数，其实现如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">// load_images</span><br><span class="line">void</span><br><span class="line">load_images(const char *path __unused, const struct mach_header *mh)</span><br><span class="line">&#123;</span><br><span class="line">    // Return without taking locks if there are no +load methods here.</span><br><span class="line">    if (!hasLoadMethods((const headerType *)mh)) return;</span><br><span class="line"></span><br><span class="line">    recursive_mutex_locker_t lock(loadMethodLock);</span><br><span class="line"></span><br><span class="line">    // Discover load methods</span><br><span class="line">    &#123;</span><br><span class="line">        mutex_locker_t lock2(runtimeLock);</span><br><span class="line">        prepare_load_methods((const headerType *)mh);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    // Call +load methods (without runtimeLock - re-entrant)</span><br><span class="line">    call_load_methods();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上面代码的实现主要依赖于<code>prepare_load_methods</code>和<code>call_load_methods</code>。<code>prepare_load_methods</code>用来查找<code>load</code>方法并确定其调用顺序，<code>call_load_methods</code>用来调用<code>load</code>方法。</p>
+<h3 id="prepare-load-methods"><a href="#prepare-load-methods" class="headerlink" title="prepare_load_methods"></a>prepare_load_methods</h3><p>我们先看一下<code>prepare_load_methods</code>的实现：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">void prepare_load_methods(const headerType *mhdr)</span><br><span class="line">&#123;</span><br><span class="line">    size_t count, i;</span><br><span class="line"></span><br><span class="line">    runtimeLock.assertLocked();</span><br><span class="line"></span><br><span class="line">    // 获取所有的类，classlist中类的顺序按照谁先编译，谁就在数组的前面</span><br><span class="line">    classref_t *classlist = </span><br><span class="line">        _getObjc2NonlazyClassList(mhdr, &amp;count);</span><br><span class="line">    for (i = 0; i &lt; count; i++) &#123;</span><br><span class="line">        // 规划类的加载，即确定+load方法的调用顺序</span><br><span class="line">        schedule_class_load(remapClass(classlist[i]));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    // 获取所有的分类</span><br><span class="line">    category_t **categorylist = _getObjc2NonlazyCategoryList(mhdr, &amp;count);</span><br><span class="line">    for (i = 0; i &lt; count; i++) &#123;</span><br><span class="line">        category_t *cat = categorylist[i];</span><br><span class="line">        Class cls = remapClass(cat-&gt;cls);</span><br><span class="line">        if (!cls) continue;  // category for ignored weak-linked class</span><br><span class="line">        realizeClass(cls);</span><br><span class="line">        assert(cls-&gt;ISA()-&gt;isRealized());</span><br><span class="line">        // 将实现了+load方法的分类添加到loadable_categories数组的最后面</span><br><span class="line">        add_category_to_loadable_list(cat);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>prepare_load_methods</code>的实现可以分为两个步骤：</p>
+<ol>
+<li>获取所有的类，调用<code>schedule_class_load</code>；</li>
+<li>获取所有的分类，调用<code>add_category_to_loadable_list</code>， <code>add_category_to_loadable_list</code> 将实现了<code>+load</code>方法的分类添加到<code>loadable_categories</code>数组的最后面，<code>loadable_categories</code>用来在<code>call_load_methods</code>进行分类<code>+load</code>方法的调用。</li>
+</ol>
+<p>上面代码中，关于<code>classlist</code>和<code>categorylist</code>这两个数组中的元素的顺序是根据类或者分类被编译的顺序分别进入对应数组中的。</p>
+<h4 id="类load方法的调用顺序"><a href="#类load方法的调用顺序" class="headerlink" title="类load方法的调用顺序"></a>类load方法的调用顺序</h4><p>确定类<code>load</code>方法的调用顺序，依赖于<code>schedule_class_load</code>，其实现如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">// schedule_class_load是一个递归函数</span><br><span class="line">static void schedule_class_load(Class cls)</span><br><span class="line">&#123;</span><br><span class="line">    if (!cls) return;</span><br><span class="line">    assert(cls-&gt;isRealized());  // _read_images should realize</span><br><span class="line"></span><br><span class="line">    if (cls-&gt;data()-&gt;flags &amp; RW_LOADED) return;</span><br><span class="line"></span><br><span class="line">    // Ensure superclass-first ordering</span><br><span class="line">    // 沿着cls的父类一直往上查找知道NSObject</span><br><span class="line">    schedule_class_load(cls-&gt;superclass);</span><br><span class="line"></span><br><span class="line">    // 将实现了+load的cls添加到loadable_classes的最后面</span><br><span class="line">    add_class_to_loadable_list(cls);</span><br><span class="line">    cls-&gt;setInfo(RW_LOADED); </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>schedule_class_load</code>是一个递归函数，它会沿着cls的父类一直往上查找知道NSObject，接着调用<code>add_class_to_loadable_list</code>将实现了<code>+load</code>方法的cls添加到<code>loadable_classes</code>的最后面。这也就解释了为什么父类的<code>load</code>方法为什么会优先于子类的<code>load</code>方法被调用。</p>
+<p>接着再看一下<code>add_class_to_loadable_list</code>的实现：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">// 这个结构体中的method专门存放类中的+load方法</span><br><span class="line">struct loadable_class &#123;</span><br><span class="line">    Class cls;  // may be nil</span><br><span class="line">    IMP method;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">void add_class_to_loadable_list(Class cls)</span><br><span class="line">&#123;</span><br><span class="line">    IMP method;</span><br><span class="line"></span><br><span class="line">    loadMethodLock.assertLocked();</span><br><span class="line"></span><br><span class="line">    method = cls-&gt;getLoadMethod();</span><br><span class="line">    if (!method) return;  // Don&apos;t bother if cls has no +load method</span><br><span class="line">    </span><br><span class="line">    if (PrintLoading) &#123;</span><br><span class="line">        _objc_inform(&quot;LOAD: class &apos;%s&apos; scheduled for +load&quot;, </span><br><span class="line">                     cls-&gt;nameForLogging());</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    if (loadable_classes_used == loadable_classes_allocated) &#123;</span><br><span class="line">        loadable_classes_allocated = loadable_classes_allocated*2 + 16;</span><br><span class="line">        loadable_classes = (struct loadable_class *)</span><br><span class="line">            realloc(loadable_classes,</span><br><span class="line">                              loadable_classes_allocated *</span><br><span class="line">                              sizeof(struct loadable_class));</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    loadable_classes[loadable_classes_used].cls = cls;</span><br><span class="line">    loadable_classes[loadable_classes_used].method = method;</span><br><span class="line">    loadable_classes_used++;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这个代码的作用就是通过传入的<code>cls</code>生成一个对应的<code>loadable_class</code>结构体，并将这个结构体加在<code>loadable_classes</code>的最后面，<code>loadable_class</code>这个结构体中的<code>method</code>专门存放类中的<code>+load</code>方法。</p>
+<h4 id="分类load方法的调用顺序"><a href="#分类load方法的调用顺序" class="headerlink" title="分类load方法的调用顺序"></a>分类load方法的调用顺序</h4><p>分类load方法的调用顺序就是遍历获取到的分类列表，通过<code>add_category_to_loadable_list</code> 将实现了<code>+load</code>方法的分类添加到<code>loadable_categories</code>数组的最后面。<code>add_category_to_loadable_list</code>的实现如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">// 这个结构体中的method专门存放分类中的+load方法</span><br><span class="line">struct loadable_category &#123;</span><br><span class="line">    Category cat;  // may be nil</span><br><span class="line">    IMP method;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">void add_category_to_loadable_list(Category cat)</span><br><span class="line">&#123;</span><br><span class="line">    IMP method;</span><br><span class="line"></span><br><span class="line">    loadMethodLock.assertLocked();</span><br><span class="line"></span><br><span class="line">    method = _category_getLoadMethod(cat);</span><br><span class="line"></span><br><span class="line">    // Don&apos;t bother if cat has no +load method</span><br><span class="line">    if (!method) return;</span><br><span class="line"></span><br><span class="line">    if (PrintLoading) &#123;</span><br><span class="line">        _objc_inform(&quot;LOAD: category &apos;%s(%s)&apos; scheduled for +load&quot;, </span><br><span class="line">                     _category_getClassName(cat), _category_getName(cat));</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    if (loadable_categories_used == loadable_categories_allocated) &#123;</span><br><span class="line">        loadable_categories_allocated = loadable_categories_allocated*2 + 16;</span><br><span class="line">        loadable_categories = (struct loadable_category *)</span><br><span class="line">            realloc(loadable_categories,</span><br><span class="line">                              loadable_categories_allocated *</span><br><span class="line">                              sizeof(struct loadable_category));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    loadable_categories[loadable_categories_used].cat = cat;</span><br><span class="line">    loadable_categories[loadable_categories_used].method = method;</span><br><span class="line">    loadable_categories_used++;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>add_category_to_loadable_list</code>函数和<code>add_class_to_loadable_list</code>函数的实现逻辑很相似，这个就不做说明了。</p>
+<p>这里总结一下<code>load</code>方法的调用顺序：</p>
+<ul>
+<li>对于重写了<code>+load</code>方法的类来说，其<code>load</code>方法的调用顺序是<strong>先编译的类的父类 &gt; 先编译的类 &gt; 后编译的类的父类 &gt; 后编译的类</strong>；</li>
+<li>对于重写了<code>+load</code>方法的类来说，其<code>load</code>方法的调用顺序是谁先被编译，谁就优先被调用。</li>
+</ul>
+<p>当确定好了<code>load</code>的调用顺序了以后，就需要调用<code>load</code>方法。</p>
+<h3 id="call-load-methods"><a href="#call-load-methods" class="headerlink" title="call_load_methods"></a>call_load_methods</h3><p>接着我们看一下<code>call_load_methods</code>的实现：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">void call_load_methods(void)</span><br><span class="line">&#123;</span><br><span class="line">    static bool loading = NO;</span><br><span class="line">    bool more_categories;</span><br><span class="line"></span><br><span class="line">    loadMethodLock.assertLocked();</span><br><span class="line"></span><br><span class="line">    // Re-entrant calls do nothing; the outermost call will finish the job.</span><br><span class="line">    if (loading) return;</span><br><span class="line">    loading = YES;</span><br><span class="line"></span><br><span class="line">    void *pool = objc_autoreleasePoolPush();</span><br><span class="line"></span><br><span class="line">    do &#123;</span><br><span class="line">        // 1. Repeatedly call class +loads until there aren&apos;t any more</span><br><span class="line">        while (loadable_classes_used &gt; 0) &#123;</span><br><span class="line">            // 调用类的load方法</span><br><span class="line">            call_class_loads();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        // 2. Call category +loads ONCE</span><br><span class="line">        // 调用分类的load方法</span><br><span class="line">        more_categories = call_category_loads();</span><br><span class="line"></span><br><span class="line">        // 3. Run more +loads if there are classes OR more untried categories</span><br><span class="line">    &#125; while (loadable_classes_used &gt; 0  ||  more_categories);</span><br><span class="line"></span><br><span class="line">    objc_autoreleasePoolPop(pool);</span><br><span class="line"></span><br><span class="line">    loading = NO;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>call_load_methods</code>函数也是分为两个步骤：</p>
+<ol>
+<li>使用<code>call_class_loads</code>调用类的<code>load</code>方法；</li>
+<li>使用<code>call_category_loads</code>调用分类的<code>load</code>方法。</li>
+</ol>
+<h4 id="call-class-loads"><a href="#call-class-loads" class="headerlink" title="call_class_loads"></a>call_class_loads</h4><p><code>call_class_loads</code>的实现如下： </p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">static void call_class_loads(void)</span><br><span class="line">&#123;</span><br><span class="line">    int i;</span><br><span class="line">    </span><br><span class="line">    // Detach current loadable list.</span><br><span class="line">    struct loadable_class *classes = loadable_classes;</span><br><span class="line">    int used = loadable_classes_used;</span><br><span class="line">    loadable_classes = nil;</span><br><span class="line">    loadable_classes_allocated = 0;</span><br><span class="line">    loadable_classes_used = 0;</span><br><span class="line">    </span><br><span class="line">    // Call all +loads for the detached list.</span><br><span class="line">    // 遍历loadable_classes列表调用+load方法，数组中越前面的元素越先被调用</span><br><span class="line">    // 根据schedule_class_load的递归查找还可以知道，父类的load方法要先于子类进行调用</span><br><span class="line">    for (i = 0; i &lt; used; i++) &#123;</span><br><span class="line">        Class cls = classes[i].cls;</span><br><span class="line">        // 取出类中的load方法</span><br><span class="line">        load_method_t load_method = (load_method_t)classes[i].method;</span><br><span class="line">        if (!cls) continue; </span><br><span class="line"></span><br><span class="line">        if (PrintLoading) &#123;</span><br><span class="line">            _objc_inform(&quot;LOAD: +[%s load]\n&quot;, cls-&gt;nameForLogging());</span><br><span class="line">        &#125;</span><br><span class="line">        // 使用指针进行调用</span><br><span class="line">        (*load_method)(cls, SEL_load);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    // Destroy the detached list.</span><br><span class="line">    if (classes) free(classes);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>call_class_loads</code>函数通过遍历<code>遍历loadable_classes</code>列表调用<code>+load</code>方法，数组中越前面的元素越先被调用。通过<code>load_method_t</code>可以获取类的<code>load</code>方法，<code>load_method_t</code>的定义为：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">typedef void(*load_method_t)(id, SEL);</span><br></pre></td></tr></table></figure>
+<p><code>load_method_t</code>是指向函数的指针，相当于返回的是一个函数地址。获取到函数指针后，使用<code>(*load_method)(cls, SEL_load);</code>调用<code>load</code>方法。所以说，<strong>load方法的调用并不是使用消息发送机制，而是直接使用函数指针调用</strong>。</p>
+<h4 id="call-category-loads"><a href="#call-category-loads" class="headerlink" title="call_category_loads"></a>call_category_loads</h4><p><code>call_category_loads</code>用来调用分类的<code>load</code>方法，其实现如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br></pre></td><td class="code"><pre><span class="line">static bool call_category_loads(void)</span><br><span class="line">&#123;</span><br><span class="line">    int i, shift;</span><br><span class="line">    bool new_categories_added = NO;</span><br><span class="line">    </span><br><span class="line">    // Detach current loadable list.</span><br><span class="line">    struct loadable_category *cats = loadable_categories;</span><br><span class="line">    int used = loadable_categories_used;</span><br><span class="line">    int allocated = loadable_categories_allocated;</span><br><span class="line">    loadable_categories = nil;</span><br><span class="line">    loadable_categories_allocated = 0;</span><br><span class="line">    loadable_categories_used = 0;</span><br><span class="line"></span><br><span class="line">    // Call all +loads for the detached list.</span><br><span class="line">    for (i = 0; i &lt; used; i++) &#123;</span><br><span class="line">        Category cat = cats[i].cat;</span><br><span class="line">        // 取出分类中的load方法，返回值是一个函数地址</span><br><span class="line">        load_method_t load_method = (load_method_t)cats[i].method;</span><br><span class="line">        Class cls;</span><br><span class="line">        if (!cat) continue;</span><br><span class="line"></span><br><span class="line">        cls = _category_getClass(cat);</span><br><span class="line">        if (cls  &amp;&amp;  cls-&gt;isLoadable()) &#123;</span><br><span class="line">            if (PrintLoading) &#123;</span><br><span class="line">                _objc_inform(&quot;LOAD: +[%s(%s) load]\n&quot;, </span><br><span class="line">                             cls-&gt;nameForLogging(), </span><br><span class="line">                             _category_getName(cat));</span><br><span class="line">            &#125;</span><br><span class="line">            // 使用指针进行调用</span><br><span class="line">            (*load_method)(cls, SEL_load);</span><br><span class="line">            cats[i].cat = nil;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    // Compact detached list (order-preserving)</span><br><span class="line">    shift = 0;</span><br><span class="line">    for (i = 0; i &lt; used; i++) &#123;</span><br><span class="line">        if (cats[i].cat) &#123;</span><br><span class="line">            cats[i-shift] = cats[i];</span><br><span class="line">        &#125; else &#123;</span><br><span class="line">            shift++;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    used -= shift;</span><br><span class="line"></span><br><span class="line">    // Copy any new +load candidates from the new list to the detached list.</span><br><span class="line">    new_categories_added = (loadable_categories_used &gt; 0);</span><br><span class="line">    for (i = 0; i &lt; loadable_categories_used; i++) &#123;</span><br><span class="line">        if (used == allocated) &#123;</span><br><span class="line">            allocated = allocated*2 + 16;</span><br><span class="line">            cats = (struct loadable_category *)</span><br><span class="line">                realloc(cats, allocated *</span><br><span class="line">                                  sizeof(struct loadable_category));</span><br><span class="line">        &#125;</span><br><span class="line">        cats[used++] = loadable_categories[i];</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    // 以下代码是一些释放代码，可以忽略</span><br><span class="line">    // Destroy the new list.</span><br><span class="line">    if (loadable_categories) free(loadable_categories);</span><br><span class="line"></span><br><span class="line">    // Reattach the (now augmented) detached list. </span><br><span class="line">    // But if there&apos;s nothing left to load, destroy the list.</span><br><span class="line">    if (used) &#123;</span><br><span class="line">        loadable_categories = cats;</span><br><span class="line">        loadable_categories_used = used;</span><br><span class="line">        loadable_categories_allocated = allocated;</span><br><span class="line">    &#125; else &#123;</span><br><span class="line">        if (cats) free(cats);</span><br><span class="line">        loadable_categories = nil;</span><br><span class="line">        loadable_categories_used = 0;</span><br><span class="line">        loadable_categories_allocated = 0;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    if (PrintLoading) &#123;</span><br><span class="line">        if (loadable_categories_used != 0) &#123;</span><br><span class="line">            _objc_inform(&quot;LOAD: %d categories still waiting for +load\n&quot;,</span><br><span class="line">                         loadable_categories_used);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    return new_categories_added;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="load总结"><a href="#load总结" class="headerlink" title="load总结"></a>load总结</h2><p>这里再总结一下load方法的一些知识点：</p>
+<ol>
+<li>load方法会在runtime加载类、分类的时候进行调用，不需要引入，只要被加载进内存就会被调用；</li>
+<li>每一个类、分类的load，在程序运行过程中只会被调用一次；</li>
+<li>先调用类的load方法，调用顺序：先编译的类的父类 &gt; 先编译的类 &gt; 后编译的类的父类 &gt; 后编译的类；</li>
+<li>再调用分类的load方法，调用顺序：谁先被编译，谁就优先被调用；</li>
+<li>load方法的调用本质是使用函数地址直接进行调用，而不是使用<code>objc_msgSend</code>的方式。</li>
+</ol>
+<h2 id="initialize"><a href="#initialize" class="headerlink" title="initialize"></a>initialize</h2><p><code>initialize</code>的测试代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line">// FatherA</span><br><span class="line">@implementation FatherA</span><br><span class="line"></span><br><span class="line">+ (void)initialize &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">@implementation FatherA(NN)</span><br><span class="line"></span><br><span class="line">+ (void)initialize &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">@implementation FatherA(Nero)</span><br><span class="line"></span><br><span class="line">+ (void)initialize &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">// SonA</span><br><span class="line">@implementation SonA</span><br><span class="line"></span><br><span class="line">+ (void)initialize &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">@implementation SonA(NN)</span><br><span class="line"></span><br><span class="line">+ (void)initialize &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">@implementation SonA(Nero)</span><br><span class="line"></span><br><span class="line">+ (void)initialize &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">// FatherB</span><br><span class="line">@implementation FatherB</span><br><span class="line"></span><br><span class="line">+ (void)initialize &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// SonB</span><br><span class="line">@implementation SonB</span><br><span class="line"></span><br><span class="line">+ (void)initialize &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;, __func__);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>我们知道<code>initialize</code>方法会在类第一次接收到消息的时候被调用，所以我们使用如下代码进行测试：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">// 测试代码</span><br><span class="line">[SonA alloc];</span><br><span class="line">[SonA alloc];</span><br><span class="line">[SonA alloc];</span><br><span class="line">    </span><br><span class="line">[FatherB alloc];</span><br></pre></td></tr></table></figure>
+<p>执行结果如下：<br><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/category_initialize%E9%A1%BA%E5%BA%8F.jpg" alt="initialize执行顺序"></p>
+<p>通过上面的代码可以知道：</p>
+<ol>
+<li>initialize方法会在类第一次接收到消息的时候被调用，所以类的initialize可能永远不会被调用；</li>
+<li>父类的initialize会优先于子类被调用；</li>
+<li>分类的initialize会覆盖掉主类的initialize（这也符合之前分类的方法调用顺序）；</li>
+</ol>
+<h3 id="initialize的实现"><a href="#initialize的实现" class="headerlink" title="initialize的实现"></a>initialize的实现</h3><p><code>initialize</code>方法的实现在<code>objc-runtime-new.m</code>中找到一个<code>lookUpImpOrForward</code>的函数，其中有如下关键代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">if (initialize  &amp;&amp;  !cls-&gt;isInitialized()) &#123;</span><br><span class="line">    runtimeLock.unlock();</span><br><span class="line">    _class_initialize (_class_getNonMetaClass(cls, inst));</span><br><span class="line">    runtimeLock.lock();</span><br><span class="line">    // If sel == initialize, _class_initialize will send +initialize and</span><br><span class="line">    // then the messenger will send +initialize again after this</span><br><span class="line">    // procedure finishes. Of course, if this is not being called</span><br><span class="line">    // from the messenger then it won&apos;t happen. 2778172</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在方法调用过程中，如果类没有被初始化的时候，会调用<code>_class_initialize</code>对类进行初始化，其中有两块关键代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">/***********************************************************************</span><br><span class="line">* class_initialize.  Send the &apos;+initialize&apos; message on demand to any</span><br><span class="line">* uninitialized class. Force initialization of superclasses first.</span><br><span class="line">**********************************************************************/</span><br><span class="line">void _class_initialize(Class cls)</span><br><span class="line">&#123;</span><br><span class="line">    ...</span><br><span class="line">    </span><br><span class="line">    // Make sure super is done initializing BEFORE beginning to initialize cls.</span><br><span class="line">    // See note about deadlock above.</span><br><span class="line">    supercls = cls-&gt;superclass;</span><br><span class="line">    if (supercls  &amp;&amp;  !supercls-&gt;isInitialized()) &#123;</span><br><span class="line">        // 沿着cls的父类一直往上查找知道NSObject</span><br><span class="line">        _class_initialize(supercls);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    ...</span><br><span class="line">            //  使用objc_msgSend调用initialize方法</span><br><span class="line">            callInitialize(cls);</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>_class_initialize</code>方法会进行递归调用，由此可以确保父类优先于子类初始化。接着调用<code>callInitialize</code>函数，其实现如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">void callInitialize(Class cls)</span><br><span class="line">&#123;</span><br><span class="line">    ((void(*)(Class, SEL))objc_msgSend)(cls, SEL_initialize);</span><br><span class="line">    asm(&quot;&quot;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>所以<code>initialize</code>的调用方式是<code>objc_msgSend</code>，它和普通方法一样是由Runtime通过发消息的形式。</p>
+<h2 id="initialize总结"><a href="#initialize总结" class="headerlink" title="initialize总结"></a>initialize总结</h2><p>这里再总结一下initialize方法的一些知识点：</p>
+<ol>
+<li>initialize方法会在类第一次接收到消息的时候被调用，所以类的initialize可能永远不会被调用；</li>
+<li>initialize调用顺序： 父类的initialize会优先于子类被调用，且分类的initialize会覆盖主类的initialize，那么就会对这个类中的实现造成覆盖；</li>
+<li>如果子类没有实现initialize方法，那么继承自父类的实现会被调用即父类的initialize可能被调用多次；</li>
+<li>如果我们想确保自己的<code>initialize</code>方法只执行一次，避免多次执行可能带来的副作用时，我们可以使用下面的代码来实现：</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">+ (void)initialize &#123;</span><br><span class="line">  if (self == [ClassName self]) &#123;</span><br><span class="line">    // ... do the initialization ...</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>最后总结一下load和initialize区别</p>
+<table>
+<thead>
+<tr>
+<th>/</th>
+<th>load</th>
+<th>initialize</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>调用时机</td>
+<td>加载到runtime时</td>
+<td>收到第一条消息时，可能永远不调用</td>
+</tr>
+<tr>
+<td>调用本质</td>
+<td>函数地址调用</td>
+<td>objc_msgSend发送消息</td>
+</tr>
+<tr>
+<td>调用顺序</td>
+<td>父类 &gt; 类 &gt; 分类</td>
+<td>父类 &gt; 类</td>
+</tr>
+<tr>
+<td>调用次数</td>
+<td>一次</td>
+<td>一次或者多次</td>
+</tr>
+<tr>
+<td>分类的中实现</td>
+<td>类和分类都执行</td>
+<td>“覆盖”主类中的实现</td>
+</tr>
+</tbody>
+</table>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+      <div>
+        <ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者：</strong>
+    NeroXie
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="http://www.neroxie.com/2019/07/23/从源码理解Category、load和initialize/" title="从源码理解Category、load和initialize">http://www.neroxie.com/2019/07/23/从源码理解Category、load和initialize/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>
+    本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/3.0/" rel="external nofollow" target="_blank">CC BY-NC-SA 3.0</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Objective-C/" rel="tag"># Objective-C</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2019/07/12/KVC实现原理/" rel="next" title="KVC实现原理">
+                <i class="fa fa-chevron-left"></i> KVC实现原理
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2019/07/23/从源码理解关联属性/" rel="prev" title="从源码理解关联对象">
+                从源码理解关联对象 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="gitalk-container"></div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="https://avatars1.githubusercontent.com/u/17306472?s=460&v=4F" alt="NeroXie">
+            
+              <p class="site-author-name" itemprop="name">NeroXie</p>
+              <p class="site-description motion-element" itemprop="description">May the Force be with you</p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">24</span>
+                  <span class="site-state-item-name">日志</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                <a href="/categories/index.html">
+                  <span class="site-state-item-count">10</span>
+                  <span class="site-state-item-name">分类</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                <a href="/tags/index.html">
+                  <span class="site-state-item-count">6</span>
+                  <span class="site-state-item-name">标签</span>
+                </a>
+              </div>
+            
+
+          </nav>
+
+          
+
+          
+            <div class="links-of-author motion-element">
+                
+                  <span class="links-of-author-item">
+                    <a href="https://github.com/YiHuaXie" target="_blank" title="GitHub">
+                      
+                        <i class="fa fa-fw fa-github"></i>GitHub</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="mailto:xyh30902@163.com" target="_blank" title="E-Mail">
+                      
+                        <i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="https://juejin.im/user/595c8f866fb9a06bbf6fecba" target="_blank" title="掘金">
+                      
+                        <i class="fa fa-fw fa-globe"></i>掘金</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="https://www.jianshu.com/u/17c52abac13c" target="_blank" title="简书">
+                      
+                        <i class="fa fa-fw fa-heartbeat"></i>简书</a>
+                  </span>
+                
+            </div>
+          
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Category"><span class="nav-number">1.</span> <span class="nav-text">Category</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Category的底层结构"><span class="nav-number">1.1.</span> <span class="nav-text">Category的底层结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Category在运行时中"><span class="nav-number">1.2.</span> <span class="nav-text">Category在运行时中</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Categoty总结"><span class="nav-number">2.</span> <span class="nav-text">Categoty总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#load"><span class="nav-number">3.</span> <span class="nav-text">load</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#prepare-load-methods"><span class="nav-number">3.1.</span> <span class="nav-text">prepare_load_methods</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#类load方法的调用顺序"><span class="nav-number">3.1.1.</span> <span class="nav-text">类load方法的调用顺序</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#分类load方法的调用顺序"><span class="nav-number">3.1.2.</span> <span class="nav-text">分类load方法的调用顺序</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#call-load-methods"><span class="nav-number">3.2.</span> <span class="nav-text">call_load_methods</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#call-class-loads"><span class="nav-number">3.2.1.</span> <span class="nav-text">call_class_loads</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#call-category-loads"><span class="nav-number">3.2.2.</span> <span class="nav-text">call_category_loads</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#load总结"><span class="nav-number">4.</span> <span class="nav-text">load总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#initialize"><span class="nav-number">5.</span> <span class="nav-text">initialize</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#initialize的实现"><span class="nav-number">5.1.</span> <span class="nav-text">initialize的实现</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#initialize总结"><span class="nav-number">6.</span> <span class="nav-text">initialize总结</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2018 &mdash; <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">NeroXie</span>
+
+  
+</div>
+
+
+  <div class="powered-by">NeroXie的个人博客</div>
+
+
+
+
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+<div class="theme-info">
+  <div class="powered-by"></div>
+  <span class="post-count">博客全站共70.1k字</span>
+</div>
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/canvas-nest/canvas-nest.min.js"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.4"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+  <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+  <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+  <script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+   <script type="text/javascript">
+        var gitalk = new Gitalk({
+          clientID: '5e5c6074ea6483a9380d',
+          clientSecret: 'd16d85928f70d31702f591a6ba8c47b3b8fe432c',
+          repo: 'YiHuaXie.github.io',
+          owner: 'YiHuaXie',
+          admin: ['YiHuaXie'],
+          id: md5(location.pathname),
+         labels: 'gitalk'.split(',').filter(l => l),
+          perPage: 15,
+          pagerDirection: 'last',
+          createIssueManually: false,
+          distractionFreeMode: true
+        })
+        gitalk.render('gitalk-container')           
+       </script>
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

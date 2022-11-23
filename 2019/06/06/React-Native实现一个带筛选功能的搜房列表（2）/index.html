@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link href="/lib/pace/pace-theme-flash.min.css?v=1.0.2" rel="stylesheet">
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="React Native,">
+
+
+
+
+
+
+
+
+
+
+<meta name="description" content="在上一篇中，我们实现了一个下拉刷新和上拉加载更多的列表，那根据一般的开发步骤，接着应该就是进行网络请求，在网络请求之后更新列表数据和列表的刷新状态。 这篇文章会向大家介绍一下Redux的基本概念以及在页面中如何使用Redux进行状态管理。 文章中的代码都来自代码传送门–NNHybrid。开始之前，我们先看一下最终实现的效果 Redux概念首先先简单介绍一下Redux的一些概念。Redux是Java">
+<meta name="keywords" content="React Native">
+<meta property="og:type" content="article">
+<meta property="og:title" content="React Native实现一个带筛选功能的搜房列表（2）">
+<meta property="og:url" content="http://www.neroxie.com/2019/06/06/React-Native实现一个带筛选功能的搜房列表（2）/index.html">
+<meta property="og:site_name" content="NeroXie的个人博客">
+<meta property="og:description" content="在上一篇中，我们实现了一个下拉刷新和上拉加载更多的列表，那根据一般的开发步骤，接着应该就是进行网络请求，在网络请求之后更新列表数据和列表的刷新状态。 这篇文章会向大家介绍一下Redux的基本概念以及在页面中如何使用Redux进行状态管理。 文章中的代码都来自代码传送门–NNHybrid。开始之前，我们先看一下最终实现的效果 Redux概念首先先简单介绍一下Redux的一些概念。Redux是Java">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/nnhybrid/searchHouse.gif">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/nnhybrid/reduxProcess.png">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/nnhybrid/reduxCommunication.jpg">
+<meta property="og:updated_time" content="2022-11-23T20:14:09.309Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="React Native实现一个带筛选功能的搜房列表（2）">
+<meta name="twitter:description" content="在上一篇中，我们实现了一个下拉刷新和上拉加载更多的列表，那根据一般的开发步骤，接着应该就是进行网络请求，在网络请求之后更新列表数据和列表的刷新状态。 这篇文章会向大家介绍一下Redux的基本概念以及在页面中如何使用Redux进行状态管理。 文章中的代码都来自代码传送门–NNHybrid。开始之前，我们先看一下最终实现的效果 Redux概念首先先简单介绍一下Redux的一些概念。Redux是Java">
+<meta name="twitter:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/nnhybrid/searchHouse.gif">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://www.neroxie.com/2019/06/06/React-Native实现一个带筛选功能的搜房列表（2）/">
+
+
+
+
+
+  <title>React Native实现一个带筛选功能的搜房列表（2） | NeroXie的个人博客</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+    <a href="https://github.com/YiHuaXie" class="github-corner" aria-label="View source on GitHub"><svg width="80" height="80" viewbox="0 0 250 250" style="fill:#151513; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg></a><style>.github-corner:hover .octo-arm{animation:octocat-wave 560ms ease-in-out}@keyframes octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}@media (max-width:500px){.github-corner:hover .octo-arm{animation:none}.github-corner .octo-arm{animation:octocat-wave 560ms ease-in-out}}</style>
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta custom-logo">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">NeroXie的个人博客</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://www.neroxie.com/2019/06/06/React-Native实现一个带筛选功能的搜房列表（2）/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="NeroXie">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="https://avatars1.githubusercontent.com/u/17306472?s=460&v=4F">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="NeroXie的个人博客">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">React Native实现一个带筛选功能的搜房列表（2）</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-06-06T11:28:52+00:00">
+                2019-06-06
+              </time>
+            
+
+            
+              <span class="post-meta-divider">|</span>
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-check-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">更新于&#58;</span>
+              
+              <time title="更新于" itemprop="dateModified" datetime="2022-11-23T20:14:09+00:00">
+                2022-11-23
+              </time>
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/NNHybrid/" itemprop="url" rel="index">
+                    <span itemprop="name">NNHybrid</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+            <div class="post-wordcount">
+              
+                
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">字数统计&#58;</span>
+                
+                <span title="字数统计">
+                  2.1k
+                </span>
+              
+
+              
+
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>在<a href="https://www.neroxie.com/2019/06/06/React-Native%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E5%B8%A6%E7%AD%9B%E9%80%89%E5%8A%9F%E8%83%BD%E7%9A%84%E6%90%9C%E6%88%BF%E5%88%97%E8%A1%A8%EF%BC%881%EF%BC%89/">上一篇</a>中，我们实现了一个下拉刷新和上拉加载更多的列表，那根据一般的开发步骤，接着应该就是进行网络请求，在网络请求之后更新列表数据和列表的刷新状态。</p>
+<p>这篇文章会向大家介绍一下Redux的基本概念以及在页面中如何使用Redux进行状态管理。</p>
+<p>文章中的代码都来自<a href="https://github.com/YiHuaXie/NNHybrid" target="_blank" rel="noopener">代码传送门–NNHybrid</a>。开始之前，我们先看一下最终实现的效果<br><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/nnhybrid/searchHouse.gif" alt="search_house"></p>
+<h2 id="Redux概念"><a href="#Redux概念" class="headerlink" title="Redux概念"></a>Redux概念</h2><p>首先先简单介绍一下Redux的一些概念。Redux是JavaScript状态容器，提供可预测化的状态管理，其工作流程如下：</p>
+<p>整个工作流程为：<br><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/nnhybrid/reduxProcess.png" alt="reduxProcess"></p>
+<ol>
+<li>View需要订阅Store中的state；</li>
+<li>操作View（点击了View上的一个按钮或者执行一个网络请求），发出Action；</li>
+<li>Store自动调用Reducer，并且传入两个参数(Old State和Action)，Reducer会返回新的State，如果有Middleware，Store会将Old State和Action传递给Middleware，Middleware会调用Reducer 然后返回新的State；</li>
+<li>State一旦有变化，Store就会调用监听函数，来更新View；</li>
+</ol>
+<h3 id="Store"><a href="#Store" class="headerlink" title="Store"></a>Store</h3><p>Store是存储state的容器，负责提供所有的状态。整个应用只能有一个Store，这么做的目的是为了让组件之间的通信更加简单。</p>
+<p><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/nnhybrid/reduxCommunication.jpg" alt="reduxCommunication"></p>
+<p>在没有Store的情况下，组件之间需要通信就比较麻烦，如果一个父组件要将状态传递到子组件，就需要通过props一层一层往下传，一个子组件的状态发生改变并且要让父组件知道，则必须暴露一个事件出去才能通信。这就使得组件之间通信依赖于组件的层次结构。此时如果有两个平级的节点想要通信，就需要通过它们的父组件进行中转。<br>有了这个全局的Store之后，所有的组件变成了和Store进行通信。这样组件之间通信就会变少，当Store发生变化，对应的组件也能拿到相关的数据。当组件内部有时间触发Store的变化时，更新Store即可。这也就是所谓的单向数据流过程。</p>
+<p>Store的职责如下：</p>
+<ul>
+<li>维持应用的state；</li>
+<li>提供<code>getState()</code>方法获取state；</li>
+<li>提供<code>dispatch(action)</code>方法更新state；</li>
+<li>通过<code>subscribe(listener)</code>注册监听器；</li>
+<li>通过<code>subscribe(listener)</code>返回的函数注销监听器。</li>
+</ul>
+<h3 id="Action"><a href="#Action" class="headerlink" title="Action"></a>Action</h3><p>当我们想要更改store中的state时，我们便需要使用Action。Action是Store数据的唯一来源，每一次修改state便要发起一次Action。</p>
+<p>Action可以理解为是一个Javascript对象。其内部必须包含一个<code>type</code>字段来表示将要执行的动作，除了 <code>type</code>字段外，Action的结构完全由自己决定。多数情况下，<code>type</code>字段会被定义成字符串常量。</p>
+<p>Action举例：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    type: Types.SEARCH_HOUSE_LOAD_DATA_SUCCESS,</span><br><span class="line">    currentPage: ++currentPage,</span><br><span class="line">    houseList,</span><br><span class="line">    hasMoreData,</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="Action创建函数"><a href="#Action创建函数" class="headerlink" title="Action创建函数"></a>Action创建函数</h3><p>Action创建函数就是生成action的方法。“action” 和 “action 创建函数” 这两个概念很容易混在一起，使用时最好注意区分。</p>
+<p>Action创建函数举例：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">export function init(storeName) &#123;</span><br><span class="line">    return dispatch =&gt; &#123;</span><br><span class="line">        dispatch(&#123; type: Types.HOUSE_DETAIL_INIT, storeName &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="Reducer"><a href="#Reducer" class="headerlink" title="Reducer"></a>Reducer</h3><p>Store收到Action以后，必须给出一个新的State，这样View才会发生变化。<br>这种State的计算过程就叫做Reducer。Reducer是一个纯函数，它只接受Action和当前State作为参数，返回一个新的State。</p>
+<p>由于Reducer是一个纯函数，所以我们不能在reducer里执行以下操作：</p>
+<ul>
+<li>修改传入的参数；</li>
+<li>执行有副作用的操作；</li>
+<li>调用非纯函数；</li>
+<li>不要修改state；</li>
+<li>遇到未知的action时，一定要返回旧的state；</li>
+</ul>
+<p>Reducer举例：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">const defaultState = &#123;</span><br><span class="line">    locationCityName: &apos;&apos;,</span><br><span class="line">    visitedCities: [],</span><br><span class="line">    hotCities: [],</span><br><span class="line">    sectionCityData: [],</span><br><span class="line">    sectionTitles: []</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">export function cityListReducer(state = defaultState, action) &#123;</span><br><span class="line">    switch (action.type) &#123;</span><br><span class="line">        case Types.CITY_LIST_LOAD_DATA:</span><br><span class="line">            return &#123;</span><br><span class="line">                ...state,</span><br><span class="line">                visitedCities: action.visitedCities,</span><br><span class="line">                hotCities: action.hotCities,</span><br><span class="line">                sectionCityData: action.sectionCityData,</span><br><span class="line">                sectionTitles: action.sectionTitles,</span><br><span class="line">            &#125;</span><br><span class="line">        case Types.CITY_LIST_START_LOCATION:</span><br><span class="line">        case Types.CITY_LIST_LOCATION_FINISHED:</span><br><span class="line">            return &#123;</span><br><span class="line">                ...state,</span><br><span class="line">                locationCityName: action.locationCityName</span><br><span class="line">            &#125;;</span><br><span class="line">        default:</span><br><span class="line">            return state;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="拆分与合并reducer"><a href="#拆分与合并reducer" class="headerlink" title="拆分与合并reducer"></a>拆分与合并reducer</h3><p>在开发过程中，由于有的功能是相互独立的，所以我们需要拆分reducer。一般情况下，针对一个页面可以设置一个reducer。但redux原则是只允许一个根reducer，接下来我们需要将每个页面的的reducer聚合到一个根reducer中。</p>
+<p>合并reducer代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">const appReducers = combineReducers(&#123;</span><br><span class="line">    nav: navReducer,</span><br><span class="line">    home: homeReducer,</span><br><span class="line">    cityList: cityListReducer,</span><br><span class="line">    apartments: apartmentReducer,</span><br><span class="line">    houseDetails: houseDetailReducer,</span><br><span class="line">    searchHouse: searchHouseReducer,</span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line">export default (state, action) =&gt; &#123;</span><br><span class="line">    switch (action.type) &#123;</span><br><span class="line">        case Types.APARTMENT_WILL_UNMOUNT:</span><br><span class="line">            delete state.apartments[action.storeName];</span><br><span class="line">            break;</span><br><span class="line">        case Types.HOUSE_DETAIL_WILL_UNMOUNT:</span><br><span class="line">            delete state.houseDetails[action.storeName];</span><br><span class="line">            break;</span><br><span class="line">        case Types.SEARCH_HOUSE_WILL_UNMOUNT:</span><br><span class="line">                delete state.searchHouse;</span><br><span class="line">            break;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    return appReducers(state, action);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="SearchHousePage使用Redux"><a href="#SearchHousePage使用Redux" class="headerlink" title="SearchHousePage使用Redux"></a>SearchHousePage使用Redux</h2><h3 id="Action类型定义"><a href="#Action类型定义" class="headerlink" title="Action类型定义"></a>Action类型定义</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">SEARCH_HOUSE_LOAD_DATA: &apos;SEARCH_HOUSE_LOAD_DATA&apos;,</span><br><span class="line">SEARCH_HOUSE_LOAD_MORE_DATA: &apos;SEARCH_HOUSE_LOAD_MORE_DATA&apos;,</span><br><span class="line">SEARCH_HOUSE_LOAD_DATA_SUCCESS: &apos;SEARCH_HOUSE_LOAD_DATA_SUCCESS&apos;,</span><br><span class="line">SEARCH_HOUSE_LOAD_DATA_FAIL: &apos;SEARCH_HOUSE_LOAD_DATA_FAIL&apos;,</span><br><span class="line">SEARCH_HOUSE_WILL_UNMOUNT: &apos;SEARCH_HOUSE_WILL_UNMOUNT&apos;,</span><br></pre></td></tr></table></figure>
+<h3 id="Action创建函数-1"><a href="#Action创建函数-1" class="headerlink" title="Action创建函数"></a>Action创建函数</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line">export function loadData(params, currentPage, errorCallBack) &#123;</span><br><span class="line">    return dispatch =&gt; &#123;</span><br><span class="line">        dispatch(&#123; type: currentPage == 1 ? Types.SEARCH_HOUSE_LOAD_DATA : Types.SEARCH_HOUSE_LOAD_MORE_DATA &#125;);</span><br><span class="line"></span><br><span class="line">        setTimeout(() =&gt; &#123;</span><br><span class="line">            Network</span><br><span class="line">                .my_request(&#123;</span><br><span class="line">                    apiPath: ApiPath.SEARCH,</span><br><span class="line">                    apiMethod: &apos;searchByPage&apos;,</span><br><span class="line">                    apiVersion: &apos;1.0&apos;,</span><br><span class="line">                    params: &#123;</span><br><span class="line">                        ...params,</span><br><span class="line">                        pageNo: currentPage,</span><br><span class="line">                        pageSize: 10</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;)</span><br><span class="line">                .then(response =&gt; &#123;</span><br><span class="line">                    const tmpResponse = AppUtil.makeSureObject(response);</span><br><span class="line">                    const hasMoreData = currentPage &lt; tmpResponse.totalPages;</span><br><span class="line">                    const houseList = AppUtil.makeSureArray(tmpResponse.resultList);</span><br><span class="line">                    dispatch(&#123;</span><br><span class="line">                        type: Types.SEARCH_HOUSE_LOAD_DATA_SUCCESS,</span><br><span class="line">                        currentPage: ++currentPage,</span><br><span class="line">                        houseList,</span><br><span class="line">                        hasMoreData,</span><br><span class="line">                    &#125;);</span><br><span class="line">                &#125;)</span><br><span class="line">                .catch(error =&gt; &#123;</span><br><span class="line">                    if (errorCallBack) errorCallBack(error.message);</span><br><span class="line"></span><br><span class="line">                    const action = &#123; type: Types.SEARCH_HOUSE_LOAD_DATA_FAIL &#125;;</span><br><span class="line">                    if (currentPage == 1) &#123;</span><br><span class="line">                        action.houseList = []</span><br><span class="line">                        action.currentPage = 1;</span><br><span class="line">                    &#125;;</span><br><span class="line"></span><br><span class="line">                    dispatch(action);</span><br><span class="line">                &#125;);</span><br><span class="line">        &#125;, 300);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="创建reducer"><a href="#创建reducer" class="headerlink" title="创建reducer"></a>创建reducer</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line">// 默认的state</span><br><span class="line">const defaultState = &#123;</span><br><span class="line">    houseList: [],</span><br><span class="line">    headerIsRefreshing: false,</span><br><span class="line">    footerRefreshState: FooterRefreshState.Idle,</span><br><span class="line">    currentPage: 1,</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">export function searchHouseReducer(state = defaultState, action) &#123;</span><br><span class="line">    switch (action.type) &#123;</span><br><span class="line">        case Types.SEARCH_HOUSE_LOAD_DATA: &#123;</span><br><span class="line">            return &#123;</span><br><span class="line">                ...state,</span><br><span class="line">                headerIsRefreshing: true</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        case Types.SEARCH_HOUSE_LOAD_MORE_DATA: &#123;</span><br><span class="line">            return &#123;</span><br><span class="line">                ...state,</span><br><span class="line">                footerRefreshState: FooterRefreshState.Refreshing,</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        case Types.SEARCH_HOUSE_LOAD_DATA_FAIL: &#123;</span><br><span class="line">            return &#123;</span><br><span class="line">                ...state,</span><br><span class="line">                headerIsRefreshing: false,</span><br><span class="line">                footerRefreshState: FooterRefreshState.Failure,</span><br><span class="line">                houseList: action.houseList ? action.houseList : state.houseList,</span><br><span class="line">                currentPage: action.currentPage,</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        case Types.SEARCH_HOUSE_LOAD_DATA_SUCCESS: &#123;</span><br><span class="line">            const houseList = action.currentPage &lt;= 2 ? action.houseList : state.houseList.concat(action.houseList);</span><br><span class="line"></span><br><span class="line">            let footerRefreshState = FooterRefreshState.Idle;</span><br><span class="line">            if (AppUtil.isEmptyArray(houseList)) &#123;</span><br><span class="line">                footerRefreshState = FooterRefreshState.EmptyData;</span><br><span class="line">            &#125; else if (!action.hasMoreData) &#123;</span><br><span class="line">                footerRefreshState = FooterRefreshState.NoMoreData;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            return &#123;</span><br><span class="line">                ...state,</span><br><span class="line">                houseList,</span><br><span class="line">                currentPage: action.currentPage,</span><br><span class="line">                headerIsRefreshing: false,</span><br><span class="line">                footerRefreshState,</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        default:</span><br><span class="line">            return state;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="包装组件"><a href="#包装组件" class="headerlink" title="包装组件"></a>包装组件</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br></pre></td><td class="code"><pre><span class="line">class SearchHousePage extends Component &#123;</span><br><span class="line"></span><br><span class="line">    // ...代码省略</span><br><span class="line">    componentDidMount() &#123;</span><br><span class="line">        this._loadData(true);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    componentWillUnmount() &#123;</span><br><span class="line">        NavigationUtil.dispatch(Types.SEARCH_HOUSE_WILL_UNMOUNT);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    _loadData(isRefresh) &#123;</span><br><span class="line">        const &#123; loadData, searchHouse &#125; = this.props;</span><br><span class="line">        const currentPage = isRefresh ? 1 : searchHouse.currentPage;</span><br><span class="line"></span><br><span class="line">        loadData(this.filterParams, currentPage, error =&gt; Toaster.autoDisapperShow(error));</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    render() &#123;</span><br><span class="line">        const &#123; home, searchHouse &#125; = this.props;</span><br><span class="line"></span><br><span class="line">        return (</span><br><span class="line">            &lt;View style=&#123;styles.container&#125; ref=&apos;container&apos;&gt;</span><br><span class="line">                &lt;RefreshFlatList</span><br><span class="line">                    ref=&apos;flatList&apos;</span><br><span class="line">                    style=&#123;&#123; marginTop: AppUtil.fullNavigationBarHeight + 44 &#125;&#125;</span><br><span class="line">                    showsHorizontalScrollIndicator=&#123;false&#125;</span><br><span class="line">                    data=&#123;searchHouse.houseList&#125;</span><br><span class="line">                    keyExtractor=&#123;item =&gt; `$&#123;item.id&#125;`&#125;</span><br><span class="line">                    renderItem=&#123;(&#123; item, index &#125;) =&gt; this._renderHouseCell(item, index)&#125;</span><br><span class="line">                    headerIsRefreshing=&#123;searchHouse.headerIsRefreshing&#125;</span><br><span class="line">                    footerRefreshState=&#123;searchHouse.footerRefreshState&#125;</span><br><span class="line">                    onHeaderRefresh=&#123;() =&gt; this._loadData(true)&#125;</span><br><span class="line">                    onFooterRefresh=&#123;() =&gt; this._loadData(false)&#125;</span><br><span class="line">                    footerRefreshComponent=&#123;footerRefreshState =&gt; this.footerRefreshComponent(footerRefreshState, searchHouse.houseList)&#125;</span><br><span class="line">                /&gt;</span><br><span class="line">                &lt;NavigationBar</span><br><span class="line">                    navBarStyle=&#123;&#123; position: &apos;absolute&apos; &#125;&#125;</span><br><span class="line">                    backOrCloseHandler=&#123;() =&gt; NavigationUtil.goBack()&#125;</span><br><span class="line">                    title=&apos;搜房&apos;</span><br><span class="line">                /&gt;</span><br><span class="line">                &lt;SearchFilterMenu</span><br><span class="line">                    style=&#123;styles.filterMenu&#125;</span><br><span class="line">                    cityId=&#123;`$&#123;home.cityId&#125;`&#125;</span><br><span class="line">                    subwayData=&#123;home.subwayData&#125;</span><br><span class="line">                    containerRef=&#123;this.refs.container&#125;</span><br><span class="line">                    filterMenuType=&#123;this.params.filterMenuType&#125;</span><br><span class="line">                    onChangeParameters=&#123;() =&gt; this._loadData(true)&#125;</span><br><span class="line">                    onUpdateParameters=&#123;(&#123; nativeEvent: &#123; filterParams &#125; &#125;) =&gt; &#123;</span><br><span class="line">                        this.filterParams = &#123;</span><br><span class="line">                            ...this.filterParams,</span><br><span class="line">                            ...filterParams,</span><br><span class="line">                        &#125;;</span><br><span class="line">                    &#125;&#125;</span><br><span class="line">                /&gt;</span><br><span class="line">            &lt;/View&gt;</span><br><span class="line">        );</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">const mapStateToProps = state =&gt; (&#123; home: state.home, searchHouse: state.searchHouse &#125;);</span><br><span class="line"></span><br><span class="line">const mapDispatchToProps = dispatch =&gt; (&#123;</span><br><span class="line">    loadData: (params, currentPage, errorCallBack) =&gt;</span><br><span class="line">        dispatch(loadData(params, currentPage, errorCallBack)),</span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line">export default connect(mapStateToProps, mapDispatchToProps)(SearchHousePage);</span><br></pre></td></tr></table></figure>
+<p>从上面的代码使用了一个<code>connect</code>函数，<code>connect</code>连接React组件与Redux store，连接操作会返回一个新的与Redux store连接的组件类，并且连接操作不会改变原来的组件类。</p>
+<p><code>mapStateToProps</code>中订阅了home节点和searchHouse节点，该页面主要使用searchHouse节点，那订阅home节点是用来方便组件间通信，这样页面进行网络请求所需的cityId，就不需要从前以页面传入，也不需要从缓存中读取。</p>
+<p>列表的刷新状态由<code>headerIsRefreshing</code>和<code>footerRefreshState</code>进行管理。</p>
+<h2 id="综上"><a href="#综上" class="headerlink" title="综上"></a>综上</h2><p>redux已经帮我们完成了页面的状态管理，再总结一下Redux需要注意的点：</p>
+<ul>
+<li>Redux应用只有一个单一的Store。当需要拆分数据处理逻辑时，你应该使用拆分与合并reducer而不是创建多个Store；</li>
+<li>redux一个特点是：状态共享，所有的状态都放在一个Store中，任何组件都可以订阅Store中的数据，但是不建议组件订阅过多Store中的节点；</li>
+<li>不要将所有的State都适合放在Store中，这样会让Store变得非常庞大；</li>
+</ul>
+<p>到这里，我们实现了列表的下拉刷新、加载更多以及如何使用redux，还差一个筛选栏和子菜单页面的开发，这里涉及到React Native与原生之间的通信，我会在<a href="https://www.neroxie.com/2019/06/06/React-Native%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E5%B8%A6%E7%AD%9B%E9%80%89%E5%8A%9F%E8%83%BD%E7%9A%84%E6%90%9C%E6%88%BF%E5%88%97%E8%A1%A8%EF%BC%883%EF%BC%89/">React Native实现一个带筛选功能的搜房列表（3）</a>中分享下如何进行React Native与原生的桥接开发。</p>
+<p>另外上面提供的代码均是从项目当中截取的，如果需要查看完整代码的话，在<a href="https://github.com/YiHuaXie/NNHybrid" target="_blank" rel="noopener">代码传送门–NNHybrid</a>中。</p>
+<p>上述相关代码路径：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">redux文件夹: /NNHybridRN/redux</span><br><span class="line"></span><br><span class="line">SearchHousePage: /NNHybridRN/sections/searchHouse/SearchHousePage.js</span><br></pre></td></tr></table></figure>
+<p>参考资料：</p>
+<p><a href="https://www.redux.org.cn/" target="_blank" rel="noopener">Redux 中文文档</a></p>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+      <div>
+        <ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者：</strong>
+    NeroXie
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="http://www.neroxie.com/2019/06/06/React-Native实现一个带筛选功能的搜房列表（2）/" title="React Native实现一个带筛选功能的搜房列表（2）">http://www.neroxie.com/2019/06/06/React-Native实现一个带筛选功能的搜房列表（2）/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>
+    本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/3.0/" rel="external nofollow" target="_blank">CC BY-NC-SA 3.0</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/React-Native/" rel="tag"># React Native</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2019/06/06/React-Native实现一个带筛选功能的搜房列表（1）/" rel="next" title="React Native实现一个带筛选功能的搜房列表（1）">
+                <i class="fa fa-chevron-left"></i> React Native实现一个带筛选功能的搜房列表（1）
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2019/06/06/React-Native实现一个带筛选功能的搜房列表（3）/" rel="prev" title="React Native实现一个带筛选功能的搜房列表（3）">
+                React Native实现一个带筛选功能的搜房列表（3） <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="gitalk-container"></div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="https://avatars1.githubusercontent.com/u/17306472?s=460&v=4F" alt="NeroXie">
+            
+              <p class="site-author-name" itemprop="name">NeroXie</p>
+              <p class="site-description motion-element" itemprop="description">May the Force be with you</p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">24</span>
+                  <span class="site-state-item-name">日志</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                <a href="/categories/index.html">
+                  <span class="site-state-item-count">10</span>
+                  <span class="site-state-item-name">分类</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                <a href="/tags/index.html">
+                  <span class="site-state-item-count">6</span>
+                  <span class="site-state-item-name">标签</span>
+                </a>
+              </div>
+            
+
+          </nav>
+
+          
+
+          
+            <div class="links-of-author motion-element">
+                
+                  <span class="links-of-author-item">
+                    <a href="https://github.com/YiHuaXie" target="_blank" title="GitHub">
+                      
+                        <i class="fa fa-fw fa-github"></i>GitHub</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="mailto:xyh30902@163.com" target="_blank" title="E-Mail">
+                      
+                        <i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="https://juejin.im/user/595c8f866fb9a06bbf6fecba" target="_blank" title="掘金">
+                      
+                        <i class="fa fa-fw fa-globe"></i>掘金</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="https://www.jianshu.com/u/17c52abac13c" target="_blank" title="简书">
+                      
+                        <i class="fa fa-fw fa-heartbeat"></i>简书</a>
+                  </span>
+                
+            </div>
+          
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Redux概念"><span class="nav-number">1.</span> <span class="nav-text">Redux概念</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Store"><span class="nav-number">1.1.</span> <span class="nav-text">Store</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Action"><span class="nav-number">1.2.</span> <span class="nav-text">Action</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Action创建函数"><span class="nav-number">1.3.</span> <span class="nav-text">Action创建函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Reducer"><span class="nav-number">1.4.</span> <span class="nav-text">Reducer</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#拆分与合并reducer"><span class="nav-number">1.5.</span> <span class="nav-text">拆分与合并reducer</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SearchHousePage使用Redux"><span class="nav-number">2.</span> <span class="nav-text">SearchHousePage使用Redux</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Action类型定义"><span class="nav-number">2.1.</span> <span class="nav-text">Action类型定义</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Action创建函数-1"><span class="nav-number">2.2.</span> <span class="nav-text">Action创建函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#创建reducer"><span class="nav-number">2.3.</span> <span class="nav-text">创建reducer</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#包装组件"><span class="nav-number">2.4.</span> <span class="nav-text">包装组件</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#综上"><span class="nav-number">3.</span> <span class="nav-text">综上</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2018 &mdash; <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">NeroXie</span>
+
+  
+</div>
+
+
+  <div class="powered-by">NeroXie的个人博客</div>
+
+
+
+
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+<div class="theme-info">
+  <div class="powered-by"></div>
+  <span class="post-count">博客全站共70.1k字</span>
+</div>
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/canvas-nest/canvas-nest.min.js"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.4"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+  <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+  <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+  <script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+   <script type="text/javascript">
+        var gitalk = new Gitalk({
+          clientID: '5e5c6074ea6483a9380d',
+          clientSecret: 'd16d85928f70d31702f591a6ba8c47b3b8fe432c',
+          repo: 'YiHuaXie.github.io',
+          owner: 'YiHuaXie',
+          admin: ['YiHuaXie'],
+          id: md5(location.pathname),
+         labels: 'gitalk'.split(',').filter(l => l),
+          perPage: 15,
+          pagerDirection: 'last',
+          createIssueManually: false,
+          distractionFreeMode: true
+        })
+        gitalk.render('gitalk-container')           
+       </script>
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

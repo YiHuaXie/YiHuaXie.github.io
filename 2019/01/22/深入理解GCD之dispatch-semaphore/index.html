@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link href="/lib/pace/pace-theme-flash.min.css?v=1.0.2" rel="stylesheet">
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="Objective-C,">
+
+
+
+
+
+
+
+
+
+
+<meta name="description" content="再研究完dispatch_queue之后，本来是打算进入到dispath_group的源码，但是dispath_group基本是围绕着dispatch_semaphore即信号量实现的，所以我们先进入到dispatch_semaphore的源码学习。在GCD中使用dispatch_semaphore用来保证资源使用的安全性（队列的同步执行就是依赖信号量实现）。可想而知，dispatch_semap">
+<meta name="keywords" content="Objective-C">
+<meta property="og:type" content="article">
+<meta property="og:title" content="深入理解GCD之dispatch_semaphore">
+<meta property="og:url" content="http://www.neroxie.com/2019/01/22/深入理解GCD之dispatch-semaphore/index.html">
+<meta property="og:site_name" content="NeroXie的个人博客">
+<meta property="og:description" content="再研究完dispatch_queue之后，本来是打算进入到dispath_group的源码，但是dispath_group基本是围绕着dispatch_semaphore即信号量实现的，所以我们先进入到dispatch_semaphore的源码学习。在GCD中使用dispatch_semaphore用来保证资源使用的安全性（队列的同步执行就是依赖信号量实现）。可想而知，dispatch_semap">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/dispatch_semaphore_wait.png">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/dispatch_semaphore_signal.png">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/1548152538652.jpg">
+<meta property="og:updated_time" content="2022-11-23T20:14:09.309Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="深入理解GCD之dispatch_semaphore">
+<meta name="twitter:description" content="再研究完dispatch_queue之后，本来是打算进入到dispath_group的源码，但是dispath_group基本是围绕着dispatch_semaphore即信号量实现的，所以我们先进入到dispatch_semaphore的源码学习。在GCD中使用dispatch_semaphore用来保证资源使用的安全性（队列的同步执行就是依赖信号量实现）。可想而知，dispatch_semap">
+<meta name="twitter:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/dispatch_semaphore_wait.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://www.neroxie.com/2019/01/22/深入理解GCD之dispatch-semaphore/">
+
+
+
+
+
+  <title>深入理解GCD之dispatch_semaphore | NeroXie的个人博客</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+    <a href="https://github.com/YiHuaXie" class="github-corner" aria-label="View source on GitHub"><svg width="80" height="80" viewbox="0 0 250 250" style="fill:#151513; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg></a><style>.github-corner:hover .octo-arm{animation:octocat-wave 560ms ease-in-out}@keyframes octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}@media (max-width:500px){.github-corner:hover .octo-arm{animation:none}.github-corner .octo-arm{animation:octocat-wave 560ms ease-in-out}}</style>
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta custom-logo">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">NeroXie的个人博客</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://www.neroxie.com/2019/01/22/深入理解GCD之dispatch-semaphore/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="NeroXie">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="https://avatars1.githubusercontent.com/u/17306472?s=460&v=4F">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="NeroXie的个人博客">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">深入理解GCD之dispatch_semaphore</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-01-22T18:01:32+00:00">
+                2019-01-22
+              </time>
+            
+
+            
+              <span class="post-meta-divider">|</span>
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-check-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">更新于&#58;</span>
+              
+              <time title="更新于" itemprop="dateModified" datetime="2022-11-23T20:14:09+00:00">
+                2022-11-23
+              </time>
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/GCD/" itemprop="url" rel="index">
+                    <span itemprop="name">GCD</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+            <div class="post-wordcount">
+              
+                
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">字数统计&#58;</span>
+                
+                <span title="字数统计">
+                  2.3k
+                </span>
+              
+
+              
+
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>再研究完<code>dispatch_queue</code>之后，本来是打算进入到<code>dispath_group</code>的源码，但是<code>dispath_group</code>基本是围绕着<code>dispatch_semaphore</code>即信号量实现的，所以我们先进入到<code>dispatch_semaphore</code>的源码学习。在GCD中使用<code>dispatch_semaphore</code>用来保证资源使用的安全性（队列的同步执行就是依赖信号量实现）。可想而知，<code>dispatch_semaphore</code>的性能应该是不差的。</p>
+<h2 id="dispatch-semaphore-t"><a href="#dispatch-semaphore-t" class="headerlink" title="dispatch_semaphore_t"></a>dispatch_semaphore_t</h2><p><code>dispatch_semaphore_s</code>是信号量的结构体。代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">struct dispatch_semaphore_s &#123;</span><br><span class="line">	DISPATCH_STRUCT_HEADER(dispatch_semaphore_s, dispatch_semaphore_vtable_s);</span><br><span class="line">	long dsema_value;	//当前信号量</span><br><span class="line">	long dsema_orig;	//初始化信号量</span><br><span class="line">	size_t dsema_sent_ksignals;</span><br><span class="line">#if USE_MACH_SEM &amp;&amp; USE_POSIX_SEM</span><br><span class="line">#error &quot;Too many supported semaphore types&quot;</span><br><span class="line">#elif USE_MACH_SEM</span><br><span class="line">	semaphore_t dsema_port;</span><br><span class="line">	semaphore_t dsema_waiter_port;</span><br><span class="line">#elif USE_POSIX_SEM</span><br><span class="line">	sem_t dsema_sem;</span><br><span class="line">#else</span><br><span class="line">#error &quot;No supported semaphore type&quot;</span><br><span class="line">#endif</span><br><span class="line">	size_t dsema_group_waiters;</span><br><span class="line">	struct dispatch_sema_notify_s *dsema_notify_head; //notify链表头部</span><br><span class="line">	struct dispatch_sema_notify_s *dsema_notify_tail; //notify链表尾部</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">typedef mach_port_t		semaphore_t;</span><br><span class="line"></span><br><span class="line">struct dispatch_sema_notify_s &#123;</span><br><span class="line">	struct dispatch_sema_notify_s *volatile dsn_next; //下一个信号节点</span><br><span class="line">	dispatch_queue_t dsn_queue;	//操作的队列</span><br><span class="line">	void *dsn_ctxt;				//上下文</span><br><span class="line">	void (*dsn_func)(void *);	//执行函数</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>虽然上面还有一些属性不知道是做什么作用的，但我们继续往下走。</p>
+<h2 id="dispatch-semaphore-create"><a href="#dispatch-semaphore-create" class="headerlink" title="dispatch_semaphore_create"></a>dispatch_semaphore_create</h2><p><code>dispatch_semaphore_create</code>用于信号量的创建。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line">dispatch_semaphore_t</span><br><span class="line">dispatch_semaphore_create(long value)</span><br><span class="line">&#123;</span><br><span class="line">	dispatch_semaphore_t dsema;</span><br><span class="line"></span><br><span class="line">	// If the internal value is negative, then the absolute of the value is</span><br><span class="line">	// equal to the number of waiting threads. Therefore it is bogus to</span><br><span class="line">	// initialize the semaphore with a negative value.</span><br><span class="line">	if (value &lt; 0) &#123;//value必须大于等于0</span><br><span class="line">		return NULL;</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	//申请dispatch_semaphore_s的内存</span><br><span class="line">	dsema = calloc(1, sizeof(struct dispatch_semaphore_s));</span><br><span class="line"></span><br><span class="line">	if (fastpath(dsema)) &#123;</span><br><span class="line">		//设置dispatch_semaphore_s 的操作函数</span><br><span class="line">		dsema-&gt;do_vtable = &amp;_dispatch_semaphore_vtable;</span><br><span class="line">		//设置链表尾部</span><br><span class="line">		dsema-&gt;do_next = DISPATCH_OBJECT_LISTLESS;</span><br><span class="line">		//引用计数</span><br><span class="line">		dsema-&gt;do_ref_cnt = 1;</span><br><span class="line">		dsema-&gt;do_xref_cnt = 1;</span><br><span class="line">		//目标队列的设置</span><br><span class="line">		dsema-&gt;do_targetq = dispatch_get_global_queue(</span><br><span class="line">				DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);</span><br><span class="line">		//当前信号量和初始化信号的赋值</span><br><span class="line">		dsema-&gt;dsema_value = value;</span><br><span class="line">		dsema-&gt;dsema_orig = value;</span><br><span class="line">#if USE_POSIX_SEM</span><br><span class="line">		int ret = sem_init(&amp;dsema-&gt;dsema_sem, 0, 0);</span><br><span class="line">		DISPATCH_SEMAPHORE_VERIFY_RET(ret);</span><br><span class="line">#endif</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	return dsema;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上面的源码中<code>dsema-&gt;do_vtable = &amp;_dispatch_semaphore_vtable;</code></p>
+<p><code>_dispatch_semaphore_vtable</code>定义如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">const struct dispatch_semaphore_vtable_s _dispatch_semaphore_vtable = &#123;</span><br><span class="line">	.do_type = DISPATCH_SEMAPHORE_TYPE,</span><br><span class="line">	.do_kind = &quot;semaphore&quot;,</span><br><span class="line">	.do_dispose = _dispatch_semaphore_dispose,</span><br><span class="line">	.do_debug = _dispatch_semaphore_debug,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>这里有个<code>_dispatch_semaphore_dispose</code>函数就是信号量的销毁函数。代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">static void</span><br><span class="line">_dispatch_semaphore_dispose(dispatch_semaphore_t dsema)</span><br><span class="line">&#123;</span><br><span class="line">	//信号量的当前值小于初始化，会发生闪退。因为信号量已经被释放了</span><br><span class="line">	if (dsema-&gt;dsema_value &lt; dsema-&gt;dsema_orig) &#123;</span><br><span class="line">		DISPATCH_CLIENT_CRASH(</span><br><span class="line">				&quot;Semaphore/group object deallocated while in use&quot;);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">#if USE_MACH_SEM</span><br><span class="line">	kern_return_t kr;</span><br><span class="line">	//释放信号，这个信号是dispatch_semaphore使用的信号</span><br><span class="line">	if (dsema-&gt;dsema_port) &#123;</span><br><span class="line">		kr = semaphore_destroy(mach_task_self(), dsema-&gt;dsema_port);</span><br><span class="line">		DISPATCH_SEMAPHORE_VERIFY_KR(kr);</span><br><span class="line">	&#125;</span><br><span class="line">	//释放信号，这个信号是dispatch_group使用的信号</span><br><span class="line">	if (dsema-&gt;dsema_waiter_port) &#123;</span><br><span class="line">		kr = semaphore_destroy(mach_task_self(), dsema-&gt;dsema_waiter_port);</span><br><span class="line">		DISPATCH_SEMAPHORE_VERIFY_KR(kr);</span><br><span class="line">	&#125;</span><br><span class="line">#elif USE_POSIX_SEM</span><br><span class="line">	int ret = sem_destroy(&amp;dsema-&gt;dsema_sem);</span><br><span class="line">	DISPATCH_SEMAPHORE_VERIFY_RET(ret);</span><br><span class="line">#endif</span><br><span class="line"></span><br><span class="line">	_dispatch_dispose(dsema);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="dispatch-semaphore-wait"><a href="#dispatch-semaphore-wait" class="headerlink" title="dispatch_semaphore_wait"></a>dispatch_semaphore_wait</h2><p>创建好一个信号量后就会开始进入等待信号发消息。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">long</span><br><span class="line">dispatch_semaphore_wait(dispatch_semaphore_t dsema, dispatch_time_t timeout)</span><br><span class="line">&#123;</span><br><span class="line">	//原子性减1，这里说明dsema_value是当前信号值，并将新值赋给value</span><br><span class="line">	long value = dispatch_atomic_dec2o(dsema, dsema_value);</span><br><span class="line">	dispatch_atomic_acquire_barrier();</span><br><span class="line">	if (fastpath(value &gt;= 0)) &#123;</span><br><span class="line">		//说明有资源可用，直接返回0，表示等到信号量的信息了</span><br><span class="line">		return 0;</span><br><span class="line">	&#125;</span><br><span class="line">	//等待信号量唤醒或者timeout超时</span><br><span class="line">	return _dispatch_semaphore_wait_slow(dsema, timeout);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="dispatch-semaphore-wait-slow"><a href="#dispatch-semaphore-wait-slow" class="headerlink" title="_dispatch_semaphore_wait_slow"></a><strong>_dispatch_semaphore_wait_slow</strong></h3><p>在<code>dispatch_semaphore_wait</code>中，如果<code>value</code>小于<code>0</code>，就会执行<code>_dispatch_semaphore_wait_slow</code>等待信号量唤醒或者timeout超时。<code>_dispatch_semaphore_wait_slow</code>的代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br></pre></td><td class="code"><pre><span class="line">static long</span><br><span class="line">_dispatch_semaphore_wait_slow(dispatch_semaphore_t dsema,</span><br><span class="line">		dispatch_time_t timeout)</span><br><span class="line">&#123;</span><br><span class="line">	long orig;</span><br><span class="line"></span><br><span class="line">again:</span><br><span class="line">	// Mach semaphores appear to sometimes spuriously wake up. Therefore,</span><br><span class="line">	// we keep a parallel count of the number of times a Mach semaphore is</span><br><span class="line">	// signaled (6880961).</span><br><span class="line">	//第一部分：</span><br><span class="line">	//只要dsema-&gt;dsema_sent_ksignals不为零就会进入循环</span><br><span class="line">	//dispatch_atomic_cmpxchg2o(dsema, dsema_sent_ksignals, orig,orig - 1)的意思是</span><br><span class="line">	//dsema-&gt;dsema_sent_ksignals如果等于orig，则将orig - 1赋值给dsema_sent_ksignals，</span><br><span class="line">	//并且返回true，否则返回false。</span><br><span class="line">	//如果返回true，说明又获取了资源</span><br><span class="line">	while ((orig = dsema-&gt;dsema_sent_ksignals)) &#123;</span><br><span class="line">		if (dispatch_atomic_cmpxchg2o(dsema, dsema_sent_ksignals, orig,</span><br><span class="line">				orig - 1)) &#123;</span><br><span class="line">			return 0;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">#if USE_MACH_SEM</span><br><span class="line">	mach_timespec_t _timeout;</span><br><span class="line">	kern_return_t kr;</span><br><span class="line"></span><br><span class="line">	//第二部分：dispatch_semaphore_s中的dsema_port赋值，以懒加载的形式</span><br><span class="line">	_dispatch_semaphore_create_port(&amp;dsema-&gt;dsema_port);</span><br><span class="line"></span><br><span class="line">	// From xnu/osfmk/kern/sync_sema.c:</span><br><span class="line">	// wait_semaphore-&gt;count = -1; /* we don&apos;t keep an actual count */</span><br><span class="line">	//</span><br><span class="line">	// The code above does not match the documentation, and that fact is</span><br><span class="line">	// not surprising. The documented semantics are clumsy to use in any</span><br><span class="line">	// practical way. The above hack effectively tricks the rest of the</span><br><span class="line">	// Mach semaphore logic to behave like the libdispatch algorithm.</span><br><span class="line"></span><br><span class="line">	//第三部分：</span><br><span class="line">	switch (timeout) &#123;</span><br><span class="line">	default:</span><br><span class="line">			//计算剩余时间，调用mach内核的等待函数semaphore_timedwait()进行等待。</span><br><span class="line">			//如果在指定时间内没有得到通知，则会一直阻塞住，监听dsema_port等待其通知；</span><br><span class="line">			//当超时的时候，会执行下面的case代码（这个default没有break）。</span><br><span class="line">		do &#123;</span><br><span class="line">			uint64_t nsec = _dispatch_timeout(timeout);</span><br><span class="line">			_timeout.tv_sec = (typeof(_timeout.tv_sec))(nsec / NSEC_PER_SEC);</span><br><span class="line">			_timeout.tv_nsec = (typeof(_timeout.tv_nsec))(nsec % NSEC_PER_SEC);</span><br><span class="line">			kr = slowpath(semaphore_timedwait(dsema-&gt;dsema_port, _timeout));</span><br><span class="line">		&#125; while (kr == KERN_ABORTED);</span><br><span class="line"></span><br><span class="line">		if (kr != KERN_OPERATION_TIMED_OUT) &#123;</span><br><span class="line">			DISPATCH_SEMAPHORE_VERIFY_KR(kr);</span><br><span class="line">			break;</span><br><span class="line">		&#125;</span><br><span class="line">		// Fall through and try to undo what the fast path did to</span><br><span class="line">		// dsema-&gt;dsema_value</span><br><span class="line">	case DISPATCH_TIME_NOW:</span><br><span class="line">			//若当前信号量desma_value小于0，对其加一并返回超时信号KERN_OPERATION_TIMED_OUT。</span><br><span class="line">			//KERN_OPERATION_TIMED_OUT代表等待超时而返回</span><br><span class="line">			//由于一开始在第一部分代码中进行了减1操作，所以需要加1以撤销之前的操作。</span><br><span class="line">		while ((orig = dsema-&gt;dsema_value) &lt; 0) &#123;</span><br><span class="line">			if (dispatch_atomic_cmpxchg2o(dsema, dsema_value, orig, orig + 1)) &#123;</span><br><span class="line">				return KERN_OPERATION_TIMED_OUT;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">		// Another thread called semaphore_signal().</span><br><span class="line">		// Fall through and drain the wakeup.</span><br><span class="line">	case DISPATCH_TIME_FOREVER:</span><br><span class="line">			//一直等待直到有信号。当有信号的时候说明dsema_value大于0，会跳转到again，重新执行本函数的流程</span><br><span class="line">		do &#123;</span><br><span class="line">			kr = semaphore_wait(dsema-&gt;dsema_port);</span><br><span class="line">		&#125; while (kr == KERN_ABORTED);</span><br><span class="line">		DISPATCH_SEMAPHORE_VERIFY_KR(kr);</span><br><span class="line">		break;</span><br><span class="line">	&#125;</span><br><span class="line">#elif USE_POSIX_SEM</span><br><span class="line">    //此处的代码省略，跟上面USE_MACH_SEM代码类似</span><br><span class="line">#endif</span><br><span class="line"></span><br><span class="line">	goto again;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在上面的源码还有几个地方需要注意：</p>
+<ol>
+<li><p>第一部分的那个while循环和if条件。在<code>dsema_sent_ksignals</code>非0的情况下便会进入while循环，if的条件是<code>dsema-&gt;dsema_sent_ksignals</code>如果等于<code>orig</code>，则将<code>orig - 1</code>赋值给<code>dsema_sent_ksignals</code>，并且返回<code>true</code>，否则返回<code>false</code>。很明显，只要能进入循环，这个条件是一定成立的，函数直接返回0，表示等到信号。而在初始化信号量的时候没有对<code>dsema_sent_ksignals</code>赋值，所以就会进入之后的代码。也就是说<strong>没有信号量的实际通知或者遭受了系统异常通知，并不会解除等待</strong></p>
+</li>
+<li><p>在上面中出现了<code>semaphore_timedwait</code>和<code>semaphore_wait</code>。这些方法是在<code>semaphore.h</code>中的。所以说<strong>dispatch_semaphore是基于mach内核的信号量接口实现的</strong>。另外这两个方法传入的参数是<code>dsema_port</code>即<code>dsema_port</code>被mach内核semaphore监听，所以我们理解<code>dsema_port</code>是dispatch_semaphore的信号。</p>
+</li>
+<li><p>我们回过头再看一下<code>dispatch_semaphore_s</code>结构体中的<code>dsema_waiter_port</code>。全局搜索一下可以发现，这个属性是用在<code>dispatch_group</code>中。之前也说了<code>dispatch_group</code>的实现是基于<code>dispatch_semaphore</code>，在<code>dispatch_group</code>里<code>semaphore_wait</code>监听的并不是<code>dsema_port</code>而是<code>dsema_waiter_port</code>。</p>
+</li>
+</ol>
+<p><code>dispatch_semaphore_wait</code>流程如下图所示：<img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/dispatch_semaphore_wait.png" alt="dispatch_semaphore_wait"></p>
+<h2 id="dispatch-semaphore-signal"><a href="#dispatch-semaphore-signal" class="headerlink" title="dispatch_semaphore_signal"></a>dispatch_semaphore_signal</h2><p>发送信号的代码相对等待信号来说简单很多，它不需要阻塞，只发送唤醒。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">long</span><br><span class="line">dispatch_semaphore_signal(dispatch_semaphore_t dsema)</span><br><span class="line">&#123;</span><br><span class="line">	dispatch_atomic_release_barrier();</span><br><span class="line">	//原子性加1，value大于0 说明有资源立即返回</span><br><span class="line">	long value = dispatch_atomic_inc2o(dsema, dsema_value);</span><br><span class="line">	if (fastpath(value &gt; 0)) &#123;</span><br><span class="line">		return 0;</span><br><span class="line">	&#125;</span><br><span class="line">	if (slowpath(value == LONG_MIN)) &#123;</span><br><span class="line">		DISPATCH_CLIENT_CRASH(&quot;Unbalanced call to dispatch_semaphore_signal()&quot;);</span><br><span class="line">	&#125;</span><br><span class="line">	return _dispatch_semaphore_signal_slow(dsema);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="dispatch-semaphore-signal-slow"><a href="#dispatch-semaphore-signal-slow" class="headerlink" title="_dispatch_semaphore_signal_slow"></a><strong>_dispatch_semaphore_signal_slow</strong></h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">long</span><br><span class="line">_dispatch_semaphore_signal_slow(dispatch_semaphore_t dsema)</span><br><span class="line">&#123;</span><br><span class="line">	// Before dsema_sent_ksignals is incremented we can rely on the reference</span><br><span class="line">	// held by the waiter. However, once this value is incremented the waiter</span><br><span class="line">	// may return between the atomic increment and the semaphore_signal(),</span><br><span class="line">	// therefore an explicit reference must be held in order to safely access</span><br><span class="line">	// dsema after the atomic increment.</span><br><span class="line">	_dispatch_retain(dsema);</span><br><span class="line"></span><br><span class="line">	(void)dispatch_atomic_inc2o(dsema, dsema_sent_ksignals);</span><br><span class="line"></span><br><span class="line">#if USE_MACH_SEM</span><br><span class="line">	_dispatch_semaphore_create_port(&amp;dsema-&gt;dsema_port);</span><br><span class="line">	kern_return_t kr = semaphore_signal(dsema-&gt;dsema_port);</span><br><span class="line">	DISPATCH_SEMAPHORE_VERIFY_KR(kr);</span><br><span class="line">#elif USE_POSIX_SEM</span><br><span class="line">	int ret = sem_post(&amp;dsema-&gt;dsema_sem);</span><br><span class="line">	DISPATCH_SEMAPHORE_VERIFY_RET(ret);</span><br><span class="line">#endif</span><br><span class="line"></span><br><span class="line">	_dispatch_release(dsema);</span><br><span class="line">	return 1;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>_dispatch_semaphore_signal_slow</code>的作用就是内核的<code>semaphore_signal</code>函数唤醒在<code>dispatch_semaphore_wait</code>中等待的线程量，然后返回1。</p>
+<p><code>dispatch_semaphore_signal</code>流程如下图所示：<img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/dispatch_semaphore_signal.png" alt="dispatch_semaphore_signal"></p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ol>
+<li><p><code>dispatch_semaphore</code>是基于mach内核的信号量接口实现的</p>
+</li>
+<li><p>调用<code>dispatch_semaphore_wait</code>信号量减1，调用<code>dispatch_semaphore_signal</code>信号量加1</p>
+</li>
+<li><p>在<code>wait</code>中，信号量大于等于0代表有资源立即返回，否则等待信号量或者返回超时；在<code>signal</code>中，信号量大于0代表有资源立即返回，否则唤醒某个正在等待的线程</p>
+</li>
+<li><p><code>dispatch_semaphore</code>利用了两个变量<code>desma_value</code> 和<code>dsema_sent_ksignals</code>来处理<code>wait</code>和<code>signal</code>，在<code>singnal</code>中如果有资源，则不需要唤醒线程，那么此时只需要使用<code>desma_value</code>。当需要唤醒线程的时候，发送的信号是<code>dsema_sent_ksignals</code>的值，此时会重新执行<code>wait</code>的流程，所以在<code>wait</code>中一开始是用<code>dsema_sent_ksignals</code>做判断。</p>
+</li>
+<li><p>再看一下<code>dispatch_semaphore_s</code>结构体的变量。</p>
+</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">struct dispatch_semaphore_s &#123;</span><br><span class="line">	DISPATCH_STRUCT_HEADER(dispatch_semaphore_s, dispatch_semaphore_vtable_s);</span><br><span class="line">	long dsema_value;	//当前信号量</span><br><span class="line">	long dsema_orig;	//初始化信号量</span><br><span class="line">	size_t dsema_sent_ksignals; //唤醒时候的信号量</span><br><span class="line">#if USE_MACH_SEM &amp;&amp; USE_POSIX_SEM</span><br><span class="line">#error &quot;Too many supported semaphore types&quot;</span><br><span class="line">#elif USE_MACH_SEM</span><br><span class="line">	semaphore_t dsema_port; //结构体使用的semaphore信号</span><br><span class="line">	semaphore_t dsema_waiter_port;//dispatch_group使用的使用的semaphore信号</span><br><span class="line">#elif USE_POSIX_SEM</span><br><span class="line">	sem_t dsema_sem;</span><br><span class="line">#else</span><br><span class="line">#error &quot;No supported semaphore type&quot;</span><br><span class="line">#endif</span><br><span class="line">	size_t dsema_group_waiters;</span><br><span class="line">	struct dispatch_sema_notify_s *dsema_notify_head; //notify链表头部</span><br><span class="line">	struct dispatch_sema_notify_s *dsema_notify_tail; //notify链表尾部</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<h2 id="补充"><a href="#补充" class="headerlink" title="补充"></a>补充</h2><p>如何控制线程并发数</p>
+<p>方法1：使用信号量进行并发控制</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">dispatch_queue_t concurrentQueue = dispatch_queue_create(&quot;concurrentQueue&quot;, DISPATCH_QUEUE_CONCURRENT);</span><br><span class="line">dispatch_queue_t serialQueue = dispatch_queue_create(&quot;serialQueue&quot;,DISPATCH_QUEUE_SERIAL);</span><br><span class="line">dispatch_semaphore_t semaphore = dispatch_semaphore_create(4);</span><br><span class="line">for (NSInteger i = 0; i &lt; 15; i++) &#123;</span><br><span class="line">    dispatch_async(serialQueue, ^&#123;</span><br><span class="line">        dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);</span><br><span class="line">        dispatch_async(concurrentQueue, ^&#123;</span><br><span class="line">            NSLog(@&quot;thread:%@开始执行任务%d&quot;,[NSThread currentThread],(int)i);</span><br><span class="line">            sleep(1);</span><br><span class="line">            NSLog(@&quot;thread:%@结束执行任务%d&quot;,[NSThread currentThread],(int)i);</span><br><span class="line">            dispatch_semaphore_signal(semaphore);&#125;);</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br><span class="line">NSLog(@&quot;主线程...!&quot;);</span><br></pre></td></tr></table></figure>
+<p>结果</p>
+<p><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/1548152538652.jpg" alt="控制最大并发"></p>
+<p>方法2：YYDispatchQueuePool的实现思路</p>
+<p>YYKit组件中的<code>YYDispatchQueuePool</code>也能控制并发队列的并发数</p>
+<p>在iOS<code>保持界面流畅的技巧</code>原文中提到：</p>
+<blockquote>
+<p>其思路是为不同优先级创建和 CPU 数量相同的 serial queue，每次从 pool 中获取 queue 时，会轮询返回其中一个 queue。我把 App 内所有异步操作，包括图像解码、对象释放、异步绘制等，都按优先级不同放入了全局的 serial queue 中执行，这样尽量避免了过多线程导致的性能问题。</p>
+</blockquote>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+      <div>
+        <ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者：</strong>
+    NeroXie
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="http://www.neroxie.com/2019/01/22/深入理解GCD之dispatch-semaphore/" title="深入理解GCD之dispatch_semaphore">http://www.neroxie.com/2019/01/22/深入理解GCD之dispatch-semaphore/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>
+    本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/3.0/" rel="external nofollow" target="_blank">CC BY-NC-SA 3.0</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Objective-C/" rel="tag"># Objective-C</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2019/01/22/AutoreleasePool的实现/" rel="next" title="OC内存管理-AutoreleasePool">
+                <i class="fa fa-chevron-left"></i> OC内存管理-AutoreleasePool
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2019/01/22/深入理解GCD之dispatch-queue/" rel="prev" title="深入理解GCD之dispatch_queue">
+                深入理解GCD之dispatch_queue <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="gitalk-container"></div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="https://avatars1.githubusercontent.com/u/17306472?s=460&v=4F" alt="NeroXie">
+            
+              <p class="site-author-name" itemprop="name">NeroXie</p>
+              <p class="site-description motion-element" itemprop="description">May the Force be with you</p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">24</span>
+                  <span class="site-state-item-name">日志</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                <a href="/categories/index.html">
+                  <span class="site-state-item-count">10</span>
+                  <span class="site-state-item-name">分类</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                <a href="/tags/index.html">
+                  <span class="site-state-item-count">6</span>
+                  <span class="site-state-item-name">标签</span>
+                </a>
+              </div>
+            
+
+          </nav>
+
+          
+
+          
+            <div class="links-of-author motion-element">
+                
+                  <span class="links-of-author-item">
+                    <a href="https://github.com/YiHuaXie" target="_blank" title="GitHub">
+                      
+                        <i class="fa fa-fw fa-github"></i>GitHub</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="mailto:xyh30902@163.com" target="_blank" title="E-Mail">
+                      
+                        <i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="https://juejin.im/user/595c8f866fb9a06bbf6fecba" target="_blank" title="掘金">
+                      
+                        <i class="fa fa-fw fa-globe"></i>掘金</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="https://www.jianshu.com/u/17c52abac13c" target="_blank" title="简书">
+                      
+                        <i class="fa fa-fw fa-heartbeat"></i>简书</a>
+                  </span>
+                
+            </div>
+          
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#dispatch-semaphore-t"><span class="nav-number">1.</span> <span class="nav-text">dispatch_semaphore_t</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#dispatch-semaphore-create"><span class="nav-number">2.</span> <span class="nav-text">dispatch_semaphore_create</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#dispatch-semaphore-wait"><span class="nav-number">3.</span> <span class="nav-text">dispatch_semaphore_wait</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#dispatch-semaphore-wait-slow"><span class="nav-number">3.1.</span> <span class="nav-text">_dispatch_semaphore_wait_slow</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#dispatch-semaphore-signal"><span class="nav-number">4.</span> <span class="nav-text">dispatch_semaphore_signal</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#dispatch-semaphore-signal-slow"><span class="nav-number">4.1.</span> <span class="nav-text">_dispatch_semaphore_signal_slow</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#补充"><span class="nav-number">6.</span> <span class="nav-text">补充</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2018 &mdash; <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">NeroXie</span>
+
+  
+</div>
+
+
+  <div class="powered-by">NeroXie的个人博客</div>
+
+
+
+
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+<div class="theme-info">
+  <div class="powered-by"></div>
+  <span class="post-count">博客全站共70.1k字</span>
+</div>
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/canvas-nest/canvas-nest.min.js"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.4"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+  <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+  <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+  <script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+   <script type="text/javascript">
+        var gitalk = new Gitalk({
+          clientID: '5e5c6074ea6483a9380d',
+          clientSecret: 'd16d85928f70d31702f591a6ba8c47b3b8fe432c',
+          repo: 'YiHuaXie.github.io',
+          owner: 'YiHuaXie',
+          admin: ['YiHuaXie'],
+          id: md5(location.pathname),
+         labels: 'gitalk'.split(',').filter(l => l),
+          perPage: 15,
+          pagerDirection: 'last',
+          createIssueManually: false,
+          distractionFreeMode: true
+        })
+        gitalk.render('gitalk-container')           
+       </script>
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

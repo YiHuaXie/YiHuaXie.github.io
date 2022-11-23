@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link href="/lib/pace/pace-theme-flash.min.css?v=1.0.2" rel="stylesheet">
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="React Native,">
+
+
+
+
+
+
+
+
+
+
+<meta name="description" content="在前两篇文章中已经介绍了如何实现一个支持下拉刷新和上拉加载更多的列表以及如何使用Redux进行单向数据流，那这篇就会介绍下最后一个模块筛选功能的开发即React Native与原生iOS的通信。 开始之前，还是先看一下最终实现的效果 代码传送门–NNHybrid 关于如何进行React Native与原生iOS的通信，在官网中有很明确的教程，这里我就不细说了。我分享的主要是如何利用那些接口实现这样">
+<meta name="keywords" content="React Native">
+<meta property="og:type" content="article">
+<meta property="og:title" content="React Native实现一个带筛选功能的搜房列表（3）">
+<meta property="og:url" content="http://www.neroxie.com/2019/06/06/React-Native实现一个带筛选功能的搜房列表（3）/index.html">
+<meta property="og:site_name" content="NeroXie的个人博客">
+<meta property="og:description" content="在前两篇文章中已经介绍了如何实现一个支持下拉刷新和上拉加载更多的列表以及如何使用Redux进行单向数据流，那这篇就会介绍下最后一个模块筛选功能的开发即React Native与原生iOS的通信。 开始之前，还是先看一下最终实现的效果 代码传送门–NNHybrid 关于如何进行React Native与原生iOS的通信，在官网中有很明确的教程，这里我就不细说了。我分享的主要是如何利用那些接口实现这样">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/nnhybrid/searchHouse.gif">
+<meta property="og:updated_time" content="2022-11-23T20:14:09.309Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="React Native实现一个带筛选功能的搜房列表（3）">
+<meta name="twitter:description" content="在前两篇文章中已经介绍了如何实现一个支持下拉刷新和上拉加载更多的列表以及如何使用Redux进行单向数据流，那这篇就会介绍下最后一个模块筛选功能的开发即React Native与原生iOS的通信。 开始之前，还是先看一下最终实现的效果 代码传送门–NNHybrid 关于如何进行React Native与原生iOS的通信，在官网中有很明确的教程，这里我就不细说了。我分享的主要是如何利用那些接口实现这样">
+<meta name="twitter:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/nnhybrid/searchHouse.gif">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://www.neroxie.com/2019/06/06/React-Native实现一个带筛选功能的搜房列表（3）/">
+
+
+
+
+
+  <title>React Native实现一个带筛选功能的搜房列表（3） | NeroXie的个人博客</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+    <a href="https://github.com/YiHuaXie" class="github-corner" aria-label="View source on GitHub"><svg width="80" height="80" viewbox="0 0 250 250" style="fill:#151513; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg></a><style>.github-corner:hover .octo-arm{animation:octocat-wave 560ms ease-in-out}@keyframes octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}@media (max-width:500px){.github-corner:hover .octo-arm{animation:none}.github-corner .octo-arm{animation:octocat-wave 560ms ease-in-out}}</style>
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta custom-logo">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">NeroXie的个人博客</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://www.neroxie.com/2019/06/06/React-Native实现一个带筛选功能的搜房列表（3）/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="NeroXie">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="https://avatars1.githubusercontent.com/u/17306472?s=460&v=4F">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="NeroXie的个人博客">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">React Native实现一个带筛选功能的搜房列表（3）</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-06-06T11:28:56+00:00">
+                2019-06-06
+              </time>
+            
+
+            
+              <span class="post-meta-divider">|</span>
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-check-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">更新于&#58;</span>
+              
+              <time title="更新于" itemprop="dateModified" datetime="2022-11-23T20:14:09+00:00">
+                2022-11-23
+              </time>
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/NNHybrid/" itemprop="url" rel="index">
+                    <span itemprop="name">NNHybrid</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+            <div class="post-wordcount">
+              
+                
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">字数统计&#58;</span>
+                
+                <span title="字数统计">
+                  1.8k
+                </span>
+              
+
+              
+
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>在前两篇文章中已经介绍了如何实现一个支持下拉刷新和上拉加载更多的列表以及如何使用Redux进行单向数据流，那这篇就会介绍下最后一个模块筛选功能的开发即React Native与原生iOS的通信。</p>
+<p>开始之前，还是先看一下最终实现的效果<br><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/nnhybrid/searchHouse.gif" alt="search_house"></p>
+<p><a href="https://github.com/YiHuaXie/NNHybrid" target="_blank" rel="noopener">代码传送门–NNHybrid</a></p>
+<p>关于如何进行React Native与原生iOS的通信，在官网中有很明确的教程，这里我就不细说了。我分享的主要是如何利用那些接口实现这样的一个效果。</p>
+<p>在项目中，筛选条和对应的子菜单都是使用原生代码实现的，而列表使用js代码实现的。我们要做的就是将这些原生页面通过桥接的方式添加到js页面上。</p>
+<p>桥接实现在<code>FHTFilterMenuManager</code>这个类中，其实现如下：</p>
+<ul>
+<li>原生实现</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br></pre></td><td class="code"><pre><span class="line">// .h</span><br><span class="line">#import &lt;React/RCTViewManager.h&gt;</span><br><span class="line">#import &quot;FHTFilterMenu.h&quot;</span><br><span class="line"></span><br><span class="line">@interface FHTFilterMenu (RNBridge)</span><br><span class="line"></span><br><span class="line">@property (nonatomic, copy) RCTBubblingEventBlock onUpdateParameters;</span><br><span class="line">@property (nonatomic, copy) RCTBubblingEventBlock onChangeParameters;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">@interface RCTConvert (FHTFilterMenu)</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">@interface FHTFilterMenuManager : RCTViewManager &lt;RCTBridgeModule&gt;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">// .m</span><br><span class="line">#import &quot;FHTFilterMenuManager.h&quot;</span><br><span class="line">#import &lt;React/RCTUIManager.h&gt;</span><br><span class="line">#import &lt;objc/runtime.h&gt;</span><br><span class="line"></span><br><span class="line">#import &quot;FilterMenuRentTypeController.h&quot;</span><br><span class="line">#import &quot;FilterMenuGeographicController.h&quot;</span><br><span class="line">#import &quot;FilterMenuOrderByController.h&quot;</span><br><span class="line">#import &quot;FilterMenuMoreController.h&quot;</span><br><span class="line">#import &quot;FilterMenuRentalController.h&quot;</span><br><span class="line"></span><br><span class="line">static ConstString kFilterParams = @&quot;filterParams&quot;;</span><br><span class="line"></span><br><span class="line">typedef NS_ENUM(NSInteger, FilterMenuType) &#123;</span><br><span class="line">    FilterMenuTypeNone,</span><br><span class="line">    FilterMenuTypeEntireRent,    //整租</span><br><span class="line">    FilterMenuTypeSharedRent,    //合租</span><br><span class="line">    FilterMenuTypeApartment,     //独栋公寓</span><br><span class="line">    FilterMenuTypeBelowThousand, //千元房源</span><br><span class="line">    FilterMenuTypePayMonthly,    //月付</span><br><span class="line">    FilterMenuTypeVR,            //VR</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">@implementation RCTConvert (FHTFilterMenu)</span><br><span class="line"></span><br><span class="line">RCT_ENUM_CONVERTER(FilterMenuType,</span><br><span class="line">                   (@&#123;@&quot;None&quot;: @(FilterMenuTypeNone),</span><br><span class="line">                      @&quot;EntireRent&quot;: @(FilterMenuTypeEntireRent),</span><br><span class="line">                      @&quot;SharedRent&quot;: @(FilterMenuTypeSharedRent),</span><br><span class="line">                      @&quot;Apartment&quot;: @(FilterMenuTypeApartment),</span><br><span class="line">                      @&quot;BelowThousand&quot;: @(FilterMenuTypeBelowThousand),</span><br><span class="line">                      @&quot;PayMonthly&quot;: @(FilterMenuTypePayMonthly),</span><br><span class="line">                      @&quot;VR&quot;:@(FilterMenuTypeVR)&#125;),</span><br><span class="line">                   FilterMenuTypeNone,</span><br><span class="line">                   integerValue);</span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">@implementation FHTFilterMenu (RNBridge)</span><br><span class="line"></span><br><span class="line">#pragma mark - Setter &amp; Getter</span><br><span class="line"></span><br><span class="line">- (void)setOnUpdateParameters:(RCTBubblingEventBlock)onUpdateParameters &#123;</span><br><span class="line">    objc_setAssociatedObject(self,</span><br><span class="line">                             @selector(onUpdateParameters),</span><br><span class="line">                             onUpdateParameters,</span><br><span class="line">                             OBJC_ASSOCIATION_COPY_NONATOMIC);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (RCTBubblingEventBlock)onUpdateParameters &#123;</span><br><span class="line">    return objc_getAssociatedObject(self, @selector(onUpdateParameters));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (void)setOnChangeParameters:(RCTBubblingEventBlock)onChangeParameters &#123;</span><br><span class="line">    objc_setAssociatedObject(self,</span><br><span class="line">                             @selector(onChangeParameters),</span><br><span class="line">                             onChangeParameters,</span><br><span class="line">                             OBJC_ASSOCIATION_COPY_NONATOMIC);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (RCTBubblingEventBlock)onChangeParameters &#123;</span><br><span class="line">    return objc_getAssociatedObject(self, @selector(onChangeParameters));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (void)setFilterMenuType:(FilterMenuType)filterMenuType &#123;</span><br><span class="line">    switch (filterMenuType) &#123;</span><br><span class="line">        case FilterMenuTypeEntireRent: &#123;</span><br><span class="line">            UIViewController *vc = (UIViewController *)self.filterControllers[0];</span><br><span class="line">            [vc presetWithOptionTitles:@[@&quot;整租&quot;]];</span><br><span class="line">        &#125;</span><br><span class="line">            break;</span><br><span class="line">        case FilterMenuTypeSharedRent: &#123;</span><br><span class="line">            UIViewController *vc = (UIViewController *)self.filterControllers[0];</span><br><span class="line">            [vc presetWithOptionTitles:@[@&quot;合租&quot;]];</span><br><span class="line">        &#125;</span><br><span class="line">            break;</span><br><span class="line">        case FilterMenuTypeApartment: &#123;</span><br><span class="line">            UIViewController *vc = (UIViewController *)self.filterControllers[3];</span><br><span class="line">            [vc presetWithOptionTitles:@[@&quot;房源类型/独栋公寓&quot;]];</span><br><span class="line">        &#125;</span><br><span class="line">            break;</span><br><span class="line">        case FilterMenuTypeBelowThousand: &#123;</span><br><span class="line">            UIViewController *vc = (UIViewController *)self.filterControllers[2];</span><br><span class="line">            [vc presetWithOptionTitles:@[@&quot;1500以下&quot;]];</span><br><span class="line">        &#125;</span><br><span class="line">            break;</span><br><span class="line">        case FilterMenuTypePayMonthly: &#123;</span><br><span class="line">            UIViewController *vc = (UIViewController *)self.filterControllers[3];</span><br><span class="line">            [vc presetWithOptionTitles:@[@&quot;房源亮点/月付&quot;]];</span><br><span class="line">        &#125;</span><br><span class="line">            break;</span><br><span class="line">        case FilterMenuTypeVR: &#123;</span><br><span class="line">            UIViewController *vc = (UIViewController *)self.filterControllers[3];</span><br><span class="line">            [vc presetWithOptionTitles:@[@&quot;房源亮点/VR&quot;]];</span><br><span class="line">        &#125;</span><br><span class="line">            break;</span><br><span class="line">        default:</span><br><span class="line">            break;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">@implementation FHTFilterMenuManager</span><br><span class="line"></span><br><span class="line">RCT_EXPORT_MODULE();</span><br><span class="line"></span><br><span class="line">RCT_EXPORT_VIEW_PROPERTY(onUpdateParameters, RCTBubblingEventBlock);</span><br><span class="line">RCT_EXPORT_VIEW_PROPERTY(onChangeParameters, RCTBubblingEventBlock);</span><br><span class="line">RCT_EXPORT_VIEW_PROPERTY(filterMenuType, FilterMenuType);</span><br><span class="line"></span><br><span class="line">RCT_CUSTOM_VIEW_PROPERTY(cityId, NSString, FHTFilterMenu) &#123;</span><br><span class="line">    FilterMenuGeographicController *vc = view.filterControllers[1];</span><br><span class="line">    vc.cityId = (NSString *)json;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">RCT_CUSTOM_VIEW_PROPERTY(subwayData, NSArray, FHTFilterMenu) &#123;</span><br><span class="line">    FilterMenuGeographicController *vc = view.filterControllers[1];</span><br><span class="line">    vc.originalSubwayData = (NSArray *)json;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">RCT_EXPORT_METHOD(showFilterMenuOnView:(nonnull NSNumber *)containerTag filterMenuTag:(nonnull NSNumber *)filterMenuTag) &#123;</span><br><span class="line">    RCTUIManager *uiManager = self.bridge.uiManager;</span><br><span class="line">    dispatch_async(uiManager.methodQueue, ^&#123;</span><br><span class="line">        [uiManager addUIBlock:^(RCTUIManager *uiManager, NSDictionary&lt;NSNumber *,UIView *&gt; *viewRegistry) &#123;</span><br><span class="line">            UIView *view = viewRegistry[containerTag];</span><br><span class="line">            FHTFilterMenu *filterMenu = (FHTFilterMenu *)viewRegistry[filterMenuTag];</span><br><span class="line">            [filterMenu showFilterMenuOnView:view];</span><br><span class="line">        &#125;];</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (dispatch_queue_t)methodQueue &#123;</span><br><span class="line">    return dispatch_get_main_queue();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (UIView *)view &#123;</span><br><span class="line">    FilterMenuRentTypeController *rentTypeVC =</span><br><span class="line">    [[FilterMenuRentTypeController alloc] initWithStyle:UITableViewStylePlain];</span><br><span class="line">    FilterMenuGeographicController *geographicVC = [FilterMenuGeographicController new];</span><br><span class="line">    FilterMenuRentalController *rentalVC =</span><br><span class="line">    [[FilterMenuRentalController alloc] initWithStyle:UITableViewStylePlain];</span><br><span class="line">    FilterMenuMoreController *moreVC = [FilterMenuMoreController new];</span><br><span class="line">    FilterMenuOrderByController *orderByVC =</span><br><span class="line">    [[FilterMenuOrderByController alloc] initWithStyle:UITableViewStylePlain];</span><br><span class="line">    </span><br><span class="line">    CGRect frame = CGRectMake(0, FULL_NAVIGATION_BAR_HEIGHT, SCREEN_WIDTH, 44);</span><br><span class="line">    FHTFilterMenu *filterMenu = [[FHTFilterMenu alloc] initWithFrame:frame];</span><br><span class="line">    filterMenu.filterControllers = @[rentTypeVC, geographicVC, rentalVC, moreVC, orderByVC];</span><br><span class="line">    [filterMenu dismissSubmenu:NO];</span><br><span class="line">    [filterMenu resetFilter];</span><br><span class="line">    </span><br><span class="line">    [rentTypeVC presetWithOptionTitles:@[]];</span><br><span class="line">    __weak FHTFilterMenu *weakFilterMenu = filterMenu;</span><br><span class="line"></span><br><span class="line">    rentTypeVC.didSetFilterHandler = ^(NSDictionary * _Nonnull params) &#123;</span><br><span class="line">        BLOCK_EXEC(weakFilterMenu.onUpdateParameters, @&#123;kFilterParams: params&#125;);</span><br><span class="line">    &#125;;</span><br><span class="line">    </span><br><span class="line">    geographicVC.didSetFilterHandler = ^(NSDictionary * _Nonnull params) &#123;</span><br><span class="line">        NSMutableDictionary *tmpParams = [@&#123;@&quot;regionId&quot;: nn_makeSureString(params[@&quot;regionId&quot;]),</span><br><span class="line">                                            @&quot;zoneIds&quot;: nn_makeSureArray(params[@&quot;zoneIds&quot;]),</span><br><span class="line">                                            @&quot;subwayRouteId&quot;: nn_makeSureString(params[@&quot;subwayRouteId&quot;]),</span><br><span class="line">                                            @&quot;subwayStationCodes&quot;: nn_makeSureArray(params[@&quot;subwayStationCodes&quot;])&#125; mutableCopy];</span><br><span class="line">        </span><br><span class="line">        BLOCK_EXEC(weakFilterMenu.onUpdateParameters, @&#123;kFilterParams: [tmpParams copy]&#125;);</span><br><span class="line">    &#125;;</span><br><span class="line">    </span><br><span class="line"></span><br><span class="line">    rentalVC.didSetFilterHandler = ^(NSDictionary * _Nonnull params) &#123;</span><br><span class="line">        NSDictionary *tmpParams = @&#123;@&quot;minPrice&quot;: nn_makeSureString(params[@&quot;minPrice&quot;]),</span><br><span class="line">                                    @&quot;maxPrice&quot;: nn_makeSureString(params[@&quot;maxPrice&quot;])&#125;;</span><br><span class="line">        BLOCK_EXEC(weakFilterMenu.onUpdateParameters, @&#123;kFilterParams: tmpParams&#125;);</span><br><span class="line">    &#125;;</span><br><span class="line">    </span><br><span class="line">    moreVC.didSetFilterHandler = ^(NSDictionary * _Nonnull params) &#123;</span><br><span class="line">        NSArray *typeArray = params[@&quot;typeArray&quot;];</span><br><span class="line">        NSString *type = typeArray.count == 1 ? (typeArray.lastObject)[@&quot;type&quot;] : @&quot;&quot;;</span><br><span class="line">        </span><br><span class="line">        NSDictionary *tmpParams = @&#123;@&quot;roomAttributeTags&quot;: params[@&quot;highlightArray&quot;],</span><br><span class="line">                                    @&quot;chamberCounts&quot;: params[@&quot;chamberArray&quot;],</span><br><span class="line">                                    @&quot;type&quot;: type&#125;;</span><br><span class="line">        </span><br><span class="line">        BLOCK_EXEC(weakFilterMenu.onUpdateParameters, @&#123;kFilterParams: tmpParams&#125;);</span><br><span class="line">    &#125;;</span><br><span class="line">    </span><br><span class="line">    orderByVC.didSetFilterHandler = ^(NSDictionary * _Nonnull params) &#123;</span><br><span class="line">        BLOCK_EXEC(weakFilterMenu.onUpdateParameters, @&#123;kFilterParams: params&#125;);</span><br><span class="line">    &#125;;</span><br><span class="line">    </span><br><span class="line">    filterMenu.filterDidChangedHandler = ^(FHTFilterMenu * _Nonnull filterMenu, id&lt;FHTFilterController&gt;  _Nonnull filterController) &#123;</span><br><span class="line">        BLOCK_EXEC(weakFilterMenu.onChangeParameters, nil);</span><br><span class="line">    &#125;;</span><br><span class="line">    </span><br><span class="line">    return filterMenu;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br></pre></td></tr></table></figure>
+<ul>
+<li>JS实现</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">import React, &#123; Component &#125; from &apos;react&apos;;</span><br><span class="line">import &#123; requireNativeComponent, NativeModules, findNodeHandle &#125; from &apos;react-native&apos;;</span><br><span class="line"></span><br><span class="line">const FilterMenu = requireNativeComponent(&apos;FHTFilterMenu&apos;, SearchFilterMenu);</span><br><span class="line">const filterMenuManager = NativeModules.FHTFilterMenuManager;</span><br><span class="line"></span><br><span class="line">export const FilterMenuType = &#123;</span><br><span class="line">    NONE: &apos;None&apos;,</span><br><span class="line">    ENTIRERENT: &apos;EntireRent&apos;,</span><br><span class="line">    SHAREDRENT: &apos;SharedRent&apos;,</span><br><span class="line">    APARTMENT: &apos;Apartment&apos;,</span><br><span class="line">    BELOWTHOUSAND: &apos;BelowThousand&apos;,</span><br><span class="line">    PAYMONTHLY: &apos;PayMonthly&apos;,</span><br><span class="line">    VR: &apos;VR&apos;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">export default class SearchFilterMenu extends Component &#123;</span><br><span class="line"></span><br><span class="line">    componentDidUpdate() &#123;</span><br><span class="line">        const filterMenuTag = findNodeHandle(this.refs.filterMenu);</span><br><span class="line">        const containerTag = findNodeHandle(this.props.containerRef);</span><br><span class="line">        if (filterMenuTag &amp;&amp; containerTag) filterMenuManager.showFilterMenuOnView(containerTag, filterMenuTag);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    render() &#123;</span><br><span class="line">        return &lt;FilterMenu ref=&apos;filterMenu&apos; &#123;...this.props&#125; /&gt;;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>JS调用</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">&lt;SearchFilterMenu</span><br><span class="line">    style=&#123;styles.filterMenu&#125;</span><br><span class="line">    cityId=&#123;`$&#123;home.cityId&#125;`&#125;</span><br><span class="line">    subwayData=&#123;home.subwayData&#125;</span><br><span class="line">    containerRef=&#123;this.refs.container&#125;</span><br><span class="line">    filterMenuType=&#123;this.params.filterMenuType&#125;</span><br><span class="line">    onChangeParameters=&#123;() =&gt; this._loadData(true)&#125;</span><br><span class="line">    onUpdateParameters=&#123;(&#123; nativeEvent: &#123; filterParams &#125; &#125;) =&gt; &#123;</span><br><span class="line">        this.filterParams = &#123;</span><br><span class="line">            ...this.filterParams,</span><br><span class="line">            ...filterParams,</span><br><span class="line">        &#125;;</span><br><span class="line">    &#125;&#125;</span><br><span class="line">/&gt;</span><br></pre></td></tr></table></figure>
+<h2 id="创建ViewManager"><a href="#创建ViewManager" class="headerlink" title="创建ViewManager"></a>创建ViewManager</h2><p><code>FHTFilterMenuManager</code>是继承自<code>RCTViewManager</code>，每一个原生UI都需要被一个<code>RCTViewManager</code>的子类来创建和管理。在程序运行过程中，<code>RCTViewManager</code>会创建原生UI并把视图提供给<code>RCTUIManager</code>，<code>RCTUIManager</code>则反过来委托<code>RCTViewManager</code>在需要的时候去设置和更新视图的属性。这里有一个注意点：<strong>ViewManager的命名格式是原生组件名字+Manager</strong>。</p>
+<p>在ViewManager中最重要的是必须实现<code>- (UIView *)view</code>，用来返回你想要桥接的原生UI。</p>
+<h2 id="从React-Native传递属性到原生组件"><a href="#从React-Native传递属性到原生组件" class="headerlink" title="从React Native传递属性到原生组件"></a>从React Native传递属性到原生组件</h2><p>我们知道属性是最简单的跨组件通信，如果RN组件接受到一个属性的时候，可以通过<code>RCT_EXPORT_VIEW_PROPERTY</code>和<code>RCT_CUSTOM_VIEW_PROPERTY</code>的方式传递给原生组件。</p>
+<p><code>RCT_EXPORT_VIEW_PROPERTY</code>可以将原生组件自带的属性暴露给JS。所以在<code>FHTFilterMenuManager</code>中，我暴露三个自带的属性给JS，分别是</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">// 点击确定按钮执行网络请求的block</span><br><span class="line">RCT_EXPORT_VIEW_PROPERTY(onUpdateParameters, RCTBubblingEventBlock);</span><br><span class="line">// 点击子菜单item，参数变更的block</span><br><span class="line">RCT_EXPORT_VIEW_PROPERTY(onChangeParameters, RCTBubblingEventBlock);</span><br><span class="line">// 筛选菜单的类型，</span><br><span class="line">RCT_EXPORT_VIEW_PROPERTY(filterMenuType, FilterMenuType);</span><br></pre></td></tr></table></figure>
+<p>这里我使用了分类的方式对原生组件的属性进行拓展，因为在项目中，我并不希望原生组件有太多RN桥接相关的代码，所以使用分类拓展，这样也可以对代码进行解耦。</p>
+<p>这里有一个注意点：<strong>如果自带的属性是block类型的话，属性名必须以on开头</strong>。</p>
+<p><code>RCT_CUSTOM_VIEW_PROPERTY</code>可以让我们添加一些更为复杂的属性。由于<code>cityId</code>和<code>subwayData</code>是<code>FilterMenuGeographicController</code>这个子菜单才需要的，如果把它们设置为<code>FHTFilterMenu</code>的属性并不合适，而<code>FilterMenuGeographicController</code>我们并没有暴露给JS，所以我们可以使用<code>RCT_CUSTOM_VIEW_PROPERTY</code>对没有暴露给JS的对象进行属性传递。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">RCT_CUSTOM_VIEW_PROPERTY(cityId, NSString, FHTFilterMenu) &#123;</span><br><span class="line">    FilterMenuGeographicController *vc = view.filterControllers[1];</span><br><span class="line">    vc.cityId = (NSString *)json;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">RCT_CUSTOM_VIEW_PROPERTY(subwayData, NSArray, FHTFilterMenu) &#123;</span><br><span class="line">    FilterMenuGeographicController *vc = view.filterControllers[1];</span><br><span class="line">    vc.originalSubwayData = (NSArray *)json;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<h2 id="React-Native调用原生组件的方法"><a href="#React-Native调用原生组件的方法" class="headerlink" title="React Native调用原生组件的方法"></a>React Native调用原生组件的方法</h2><p><code>RCT_EXPORT_METHOD</code>用来提供原生方法给JS调用。<code>RCT_EXPORT_METHOD(showFilterMenuOnView:(nonnull NSNumber *)containerTag filterMenuTag:(nonnull NSNumber *)filterMenuTag)</code>用来实现将子菜单添加到<code>SearchHousePage</code>，其实现如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">RCT_EXPORT_METHOD(showFilterMenuOnView:(nonnull NSNumber *)containerTag filterMenuTag:(nonnull NSNumber *)filterMenuTag) &#123;</span><br><span class="line">    RCTUIManager *uiManager = self.bridge.uiManager;</span><br><span class="line">    dispatch_async(uiManager.methodQueue, ^&#123;</span><br><span class="line">        [uiManager addUIBlock:^(RCTUIManager *uiManager, NSDictionary&lt;NSNumber *,UIView *&gt; *viewRegistry) &#123;</span><br><span class="line">            UIView *view = viewRegistry[containerTag];</span><br><span class="line">            FHTFilterMenu *filterMenu = (FHTFilterMenu *)viewRegistry[filterMenuTag];</span><br><span class="line">            [filterMenu showFilterMenuOnView:view];</span><br><span class="line">        &#125;];</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>其中<code>containerTag</code>代码用来表示<code>SearchHousePage</code>，<code>filterMenuTag</code>则表示筛选条。这里有一个注意点：<strong>不能使用self.view的方式因为会创建出一个新的FHTFilterMenu对象，更不能在<code>- (UIView *)view</code>中使用一个指针对创建出来的View进行引用，如果你的组件在多个页面都用使用的话，是会出问题的</strong>。</p>
+<p>另外，由于iOS的UI操作是要放在主线程完成的，所以最好<code>methodQueue</code>指定为主线程。</p>
+<h2 id="结尾"><a href="#结尾" class="headerlink" title="结尾"></a>结尾</h2><p>到这里整个<code>SearchHousePage</code>页面的开发已经完成，如果需要查看完整代码的话，在<a href="https://github.com/YiHuaXie/NNHybrid" target="_blank" rel="noopener">代码传送门–NNHybrid</a>中。</p>
+<p>参考：<br><a href="https://facebook.github.io/react-native/docs/native-modules-ios" target="_blank" rel="noopener">Native Modules</a><br><a href="https://facebook.github.io/react-native/docs/native-components-ios" target="_blank" rel="noopener">Native UI Components</a></p>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+      <div>
+        <ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者：</strong>
+    NeroXie
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="http://www.neroxie.com/2019/06/06/React-Native实现一个带筛选功能的搜房列表（3）/" title="React Native实现一个带筛选功能的搜房列表（3）">http://www.neroxie.com/2019/06/06/React-Native实现一个带筛选功能的搜房列表（3）/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>
+    本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/3.0/" rel="external nofollow" target="_blank">CC BY-NC-SA 3.0</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/React-Native/" rel="tag"># React Native</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2019/06/06/React-Native实现一个带筛选功能的搜房列表（2）/" rel="next" title="React Native实现一个带筛选功能的搜房列表（2）">
+                <i class="fa fa-chevron-left"></i> React Native实现一个带筛选功能的搜房列表（2）
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2019/07/12/KVO实现原理/" rel="prev" title="KVO实现原理">
+                KVO实现原理 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="gitalk-container"></div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="https://avatars1.githubusercontent.com/u/17306472?s=460&v=4F" alt="NeroXie">
+            
+              <p class="site-author-name" itemprop="name">NeroXie</p>
+              <p class="site-description motion-element" itemprop="description">May the Force be with you</p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">24</span>
+                  <span class="site-state-item-name">日志</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                <a href="/categories/index.html">
+                  <span class="site-state-item-count">10</span>
+                  <span class="site-state-item-name">分类</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                <a href="/tags/index.html">
+                  <span class="site-state-item-count">6</span>
+                  <span class="site-state-item-name">标签</span>
+                </a>
+              </div>
+            
+
+          </nav>
+
+          
+
+          
+            <div class="links-of-author motion-element">
+                
+                  <span class="links-of-author-item">
+                    <a href="https://github.com/YiHuaXie" target="_blank" title="GitHub">
+                      
+                        <i class="fa fa-fw fa-github"></i>GitHub</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="mailto:xyh30902@163.com" target="_blank" title="E-Mail">
+                      
+                        <i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="https://juejin.im/user/595c8f866fb9a06bbf6fecba" target="_blank" title="掘金">
+                      
+                        <i class="fa fa-fw fa-globe"></i>掘金</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="https://www.jianshu.com/u/17c52abac13c" target="_blank" title="简书">
+                      
+                        <i class="fa fa-fw fa-heartbeat"></i>简书</a>
+                  </span>
+                
+            </div>
+          
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#创建ViewManager"><span class="nav-number">1.</span> <span class="nav-text">创建ViewManager</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#从React-Native传递属性到原生组件"><span class="nav-number">2.</span> <span class="nav-text">从React Native传递属性到原生组件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#React-Native调用原生组件的方法"><span class="nav-number">3.</span> <span class="nav-text">React Native调用原生组件的方法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#结尾"><span class="nav-number">4.</span> <span class="nav-text">结尾</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2018 &mdash; <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">NeroXie</span>
+
+  
+</div>
+
+
+  <div class="powered-by">NeroXie的个人博客</div>
+
+
+
+
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+<div class="theme-info">
+  <div class="powered-by"></div>
+  <span class="post-count">博客全站共70.1k字</span>
+</div>
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/canvas-nest/canvas-nest.min.js"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.4"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+  <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+  <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+  <script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+   <script type="text/javascript">
+        var gitalk = new Gitalk({
+          clientID: '5e5c6074ea6483a9380d',
+          clientSecret: 'd16d85928f70d31702f591a6ba8c47b3b8fe432c',
+          repo: 'YiHuaXie.github.io',
+          owner: 'YiHuaXie',
+          admin: ['YiHuaXie'],
+          id: md5(location.pathname),
+         labels: 'gitalk'.split(',').filter(l => l),
+          perPage: 15,
+          pagerDirection: 'last',
+          createIssueManually: false,
+          distractionFreeMode: true
+        })
+        gitalk.render('gitalk-container')           
+       </script>
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

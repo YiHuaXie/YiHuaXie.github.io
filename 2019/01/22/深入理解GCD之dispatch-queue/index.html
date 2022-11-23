@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link href="/lib/pace/pace-theme-flash.min.css?v=1.0.2" rel="stylesheet">
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="Objective-C,">
+
+
+
+
+
+
+
+
+
+
+<meta name="description" content="更新于2020-12-13 更新异步执行任务的源码分析 GCD队列是我们在使用GCD中经常接触的技术点，分析dispatch_queue部分的源码能更好得理解多线程时的处理。但是libdispatch的源码相对来说比较复杂，综合考虑下，使用了libdispatch-187.9进行分析。 队列和线程的关系Concurrent Programming: APIs and Challenges中的一张图">
+<meta name="keywords" content="Objective-C">
+<meta property="og:type" content="article">
+<meta property="og:title" content="深入理解GCD之dispatch_queue">
+<meta property="og:url" content="http://www.neroxie.com/2019/01/22/深入理解GCD之dispatch-queue/index.html">
+<meta property="og:site_name" content="NeroXie的个人博客">
+<meta property="og:description" content="更新于2020-12-13 更新异步执行任务的源码分析 GCD队列是我们在使用GCD中经常接触的技术点，分析dispatch_queue部分的源码能更好得理解多线程时的处理。但是libdispatch的源码相对来说比较复杂，综合考虑下，使用了libdispatch-187.9进行分析。 队列和线程的关系Concurrent Programming: APIs and Challenges中的一张图">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/GCDandThread%402x.png">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/gcd_queue_synchronization.png">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/dispatch_async_f%E6%B5%81%E7%A8%8B%E5%9B%BE.png">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/dispatch_async.png">
+<meta property="og:updated_time" content="2022-11-23T20:14:09.309Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="深入理解GCD之dispatch_queue">
+<meta name="twitter:description" content="更新于2020-12-13 更新异步执行任务的源码分析 GCD队列是我们在使用GCD中经常接触的技术点，分析dispatch_queue部分的源码能更好得理解多线程时的处理。但是libdispatch的源码相对来说比较复杂，综合考虑下，使用了libdispatch-187.9进行分析。 队列和线程的关系Concurrent Programming: APIs and Challenges中的一张图">
+<meta name="twitter:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/GCDandThread%402x.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://www.neroxie.com/2019/01/22/深入理解GCD之dispatch-queue/">
+
+
+
+
+
+  <title>深入理解GCD之dispatch_queue | NeroXie的个人博客</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+    <a href="https://github.com/YiHuaXie" class="github-corner" aria-label="View source on GitHub"><svg width="80" height="80" viewbox="0 0 250 250" style="fill:#151513; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg></a><style>.github-corner:hover .octo-arm{animation:octocat-wave 560ms ease-in-out}@keyframes octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}@media (max-width:500px){.github-corner:hover .octo-arm{animation:none}.github-corner .octo-arm{animation:octocat-wave 560ms ease-in-out}}</style>
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta custom-logo">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">NeroXie的个人博客</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://www.neroxie.com/2019/01/22/深入理解GCD之dispatch-queue/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="NeroXie">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="https://avatars1.githubusercontent.com/u/17306472?s=460&v=4F">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="NeroXie的个人博客">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">深入理解GCD之dispatch_queue</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-01-22T18:29:38+00:00">
+                2019-01-22
+              </time>
+            
+
+            
+              <span class="post-meta-divider">|</span>
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-check-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">更新于&#58;</span>
+              
+              <time title="更新于" itemprop="dateModified" datetime="2022-11-23T20:14:09+00:00">
+                2022-11-23
+              </time>
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/GCD/" itemprop="url" rel="index">
+                    <span itemprop="name">GCD</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+            <div class="post-wordcount">
+              
+                
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">字数统计&#58;</span>
+                
+                <span title="字数统计">
+                  9.2k
+                </span>
+              
+
+              
+
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>更新于2020-12-13 更新异步执行任务的源码分析</p>
+<p>GCD队列是我们在使用GCD中经常接触的技术点，分析dispatch_queue部分的源码能更好得理解多线程时的处理。但是libdispatch的源码相对来说比较复杂，综合考虑下，使用了<a href="https://opensource.apple.com/tarballs/libdispatch/" target="_blank" rel="noopener">libdispatch-187.9</a>进行分析。</p>
+<h2 id="队列和线程的关系"><a href="#队列和线程的关系" class="headerlink" title="队列和线程的关系"></a>队列和线程的关系</h2><p><a href="https://www.objc.io/issues/2-concurrency/concurrency-apis-and-pitfalls/" target="_blank" rel="noopener">Concurrent Programming: APIs and Challenges</a>中的一张图片可以很直观地描述GCD与线程之间的关系：<img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/GCDandThread%402x.png" alt="GCDandThread@2x"></p>
+<p>线程和队列并不是一对一的关系，一个线程内可能有多个队列，这些队列可能是串行的或者是并行的，按照同步或者异步的方式工作。</p>
+<p>对于主线程和主队列来说，主队列是主线程上的一个串行队列，是系统自动为我们创建的，换言之，主线程是可以执行除主队列之外其他队列的任务。我们可以用下面一段代码进行测试：</p>
+<figure class="highlight swift"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 测试代码</span></span><br><span class="line"><span class="keyword">override</span> <span class="function"><span class="keyword">func</span> <span class="title">viewDidLoad</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="keyword">super</span>.viewDidLoad()</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">let</span> sQueue = <span class="type">DispatchQueue</span>(label: <span class="string">"sQueue"</span>)</span><br><span class="line">    <span class="comment">// 串行队列同步不会产生新线程，任务在当前线程下执行，因此Thread.current必然是主线程</span></span><br><span class="line">    sQueue.sync &#123; <span class="built_in">print</span>(<span class="type">Thread</span>.current) &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="队列的定义"><a href="#队列的定义" class="headerlink" title="队列的定义"></a>队列的定义</h2><h3 id="dispatch-queue-s"><a href="#dispatch-queue-s" class="headerlink" title="dispatch_queue_s"></a>dispatch_queue_s</h3><p><code>dispatch_queue_s</code>是队列的结构体，可以说我们在GCD中接触最多的结构体了。GCD中使用了很多的宏，不利于我们理解代码，我们用对应的结构替换掉定义的宏。</p>
+<p>为了方便后续的分析，先列出一些函数方便后面的理解</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">dispatch_queue_s</span> &#123;</span></span><br><span class="line">    <span class="comment">// 第一部分：DISPATCH_STRUCT_HEADER(dispatch_queue_s, dispatch_queue_vtable_s)</span></span><br><span class="line">    <span class="keyword">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">dispatch_queue_vtable_s</span> *<span class="title">do_vtable</span>;</span> <span class="comment">// 该类型的结构体包含了对dispatch_queue_s的操作函数</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">dispatch_queue_s</span> *<span class="title">volatile</span> <span class="title">do_next</span>;</span> <span class="comment">//链表的next</span></span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">int</span> do_ref_cnt; <span class="comment">// 引用计数</span></span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">int</span> do_xref_cnt; <span class="comment">// 外部引用计数</span></span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">int</span> do_suspend_cnt; <span class="comment">// 暂停标志，比如延时处理中，在任务到时后，计时器处理将会将该标志位修改，然后唤醒队列调度</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">dispatch_queue_s</span> *<span class="title">do_targetq</span>;</span> <span class="comment">// 目标队列，GCD允许我们将一个队列放在另一个队列里执行任务</span></span><br><span class="line">	<span class="keyword">void</span> *do_ctxt; <span class="comment">// 上下文，用来存储线程池相关数据，比如用于线程挂起和唤醒的信号量、线程池尺寸等</span></span><br><span class="line">	<span class="keyword">void</span> *do_finalizer;</span><br><span class="line">	</span><br><span class="line">    <span class="comment">// 第二部分：DISPATCH_QUEUE_HEADER</span></span><br><span class="line">    <span class="keyword">uint32_t</span> <span class="keyword">volatile</span> dq_running; <span class="comment">// 队列运行的任务数量</span></span><br><span class="line">    <span class="keyword">uint32_t</span> dq_width; <span class="comment">// 最大并发数：主队列/串行队列的最大并发数为1</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">dispatch_object_s</span> *<span class="title">volatile</span> <span class="title">dq_items_tail</span>;</span> <span class="comment">// 队列尾结点</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">dispatch_object_s</span> *<span class="title">volatile</span> <span class="title">dq_items_head</span>;</span> <span class="comment">// 队列头结点</span></span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">long</span> dq_serialnum; <span class="comment">// 队列序列号</span></span><br><span class="line">    <span class="keyword">dispatch_queue_t</span> dq_specific_q; <span class="comment">// specific队列</span></span><br><span class="line">	</span><br><span class="line">    <span class="keyword">char</span> dq_label[DISPATCH_QUEUE_MIN_LABEL_SIZE]; <span class="comment">// 队列名，队列名要少于64个字符    </span></span><br><span class="line">    <span class="keyword">char</span> _dq_pad[DISPATCH_QUEUE_CACHELINE_PAD]; <span class="comment">// for static queues only</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<h3 id="dispatch-queue-vtable-s"><a href="#dispatch-queue-vtable-s" class="headerlink" title="dispatch_queue_vtable_s"></a>dispatch_queue_vtable_s</h3><p>在GCD队列中，<code>dispatch_queue_vtable_s</code>这个结构体内包含了<code>dispatch_object_s</code>的操作函数，而且针对这些操作函数，定义了相对简短的宏，方便调用。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// dispatch_queue_vtable_s结构体，声明了一些函数用于操作dispatch_queue_s结构体</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">dispatch_queue_vtable_s</span> &#123;</span></span><br><span class="line">	<span class="comment">// DISPATCH_VTABLE_HEADER(dispatch_queue_s);</span></span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">long</span> <span class="keyword">const</span> do_type;</span><br><span class="line">	<span class="keyword">const</span> <span class="keyword">char</span> *<span class="keyword">const</span> do_kind;</span><br><span class="line">	<span class="keyword">size_t</span> (*<span class="keyword">const</span> do_debug)(struct dispatch_queue_s *, <span class="keyword">char</span> *, <span class="keyword">size_t</span>);</span><br><span class="line">	<span class="comment">// 唤醒队列的方法，全局队列和主队列此项为NULL</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">dispatch_queue_s</span> *(*<span class="title">const</span> <span class="title">do_invoke</span>)(<span class="title">struct</span> <span class="title">dispatch_queue_s</span>);</span> </span><br><span class="line">	<span class="comment">// 用于检测传入对象中的一些值是否满足条件</span></span><br><span class="line">	<span class="keyword">bool</span> (*<span class="keyword">const</span> do_probe)(struct dispatch_queue_s *);</span><br><span class="line">	<span class="comment">// 销毁队列的方法，通常内部会调用这个对象的finalizer函数</span></span><br><span class="line">	<span class="keyword">void</span> (*<span class="keyword">const</span> do_dispose)(struct dispatch_queue_s *)</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>在queue.c中定义三个关于<code>dispatch_queue_vtable_s</code>的静态常量，分别是<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 用于主队列和自定义队列</span></span><br><span class="line"><span class="keyword">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">dispatch_queue_vtable_s</span> _<span class="title">dispatch_queue_vtable</span> = &#123;</span></span><br><span class="line">	.do_type = DISPATCH_QUEUE_TYPE,</span><br><span class="line">	.do_kind = <span class="string">"queue"</span>,</span><br><span class="line">	.do_dispose = _dispatch_queue_dispose,</span><br><span class="line">	.do_invoke = <span class="literal">NULL</span>,</span><br><span class="line">	.do_probe = (<span class="keyword">void</span> *)dummy_function_r0,</span><br><span class="line">	.do_debug = dispatch_queue_debug,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 用于全局队列</span></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">dispatch_queue_vtable_s</span> _<span class="title">dispatch_queue_root_vtable</span> = &#123;</span></span><br><span class="line">	.do_type = DISPATCH_QUEUE_GLOBAL_TYPE,</span><br><span class="line">	.do_kind = <span class="string">"global-queue"</span>,</span><br><span class="line">	.do_debug = dispatch_queue_debug,</span><br><span class="line">	.do_probe = _dispatch_queue_wakeup_global,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 用于管理队列</span></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">dispatch_queue_vtable_s</span> _<span class="title">dispatch_queue_mgr_vtable</span> = &#123;</span></span><br><span class="line">	.do_type = DISPATCH_QUEUE_MGR_TYPE,</span><br><span class="line">	.do_kind = <span class="string">"mgr-queue"</span>,</span><br><span class="line">	.do_invoke = _dispatch_mgr_thread,</span><br><span class="line">	.do_debug = dispatch_queue_debug,</span><br><span class="line">	.do_probe = _dispatch_mgr_wakeup,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure></p>
+<h2 id="队列的类型"><a href="#队列的类型" class="headerlink" title="队列的类型"></a>队列的类型</h2><p>队列的类型可以分为<strong>主队列</strong>、<strong>管理队列</strong>、<strong>自定义队列</strong>、<strong>全局队列</strong>4种类型。</p>
+<h3 id="主队列"><a href="#主队列" class="headerlink" title="主队列"></a>主队列</h3><p>使用<code>dispatch_get_main_queue()</code>可获取主队列，它的定义如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> dispatch_get_main_queue() (&amp;_dispatch_main_q)</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">dispatch_queue_s</span> _<span class="title">dispatch_main_q</span> = &#123;</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">if</span> !DISPATCH_USE_RESOLVERS</span></span><br><span class="line">	.do_vtable = &amp;_dispatch_queue_vtable,</span><br><span class="line">	.do_targetq = &amp;_dispatch_root_queues[</span><br><span class="line">			DISPATCH_ROOT_QUEUE_IDX_DEFAULT_OVERCOMMIT_PRIORITY], <span class="comment">// root queue中的其中一个</span></span><br><span class="line">#endif</span><br><span class="line">	.do_ref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">	.do_xref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">	.do_suspend_cnt = DISPATCH_OBJECT_SUSPEND_LOCK,</span><br><span class="line">	.dq_label = <span class="string">"com.apple.main-thread"</span>,</span><br><span class="line">	.dq_running = <span class="number">1</span>,</span><br><span class="line">	.dq_width = <span class="number">1</span>, <span class="comment">// 说明主队列是一个串行队列</span></span><br><span class="line">	.dq_serialnum = <span class="number">1</span>, <span class="comment">// 主队列序列号</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<h4 id="do-vtable"><a href="#do-vtable" class="headerlink" title="do_vtable"></a>do_vtable</h4><p>主队列的<code>do_vtable</code>为<code>_dispatch_queue_vtable</code>。</p>
+<h4 id="do-targetq"><a href="#do-targetq" class="headerlink" title="do_targetq"></a>do_targetq</h4><p><code>do_targetq</code>即目标队列，关于目标队列的意义，在分析全局队列的do_targetq中会给一个比较具体的总结。</p>
+<p>主队列的目标队列定义：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">[DISPATCH_ROOT_QUEUE_IDX_DEFAULT_OVERCOMMIT_PRIORITY] = &#123;</span><br><span class="line">		.do_vtable = &amp;_dispatch_queue_root_vtable,</span><br><span class="line">		.do_ref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">		.do_xref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">		.do_suspend_cnt = DISPATCH_OBJECT_SUSPEND_LOCK,</span><br><span class="line">		.do_ctxt = &amp;_dispatch_root_queue_contexts[</span><br><span class="line">				DISPATCH_ROOT_QUEUE_IDX_DEFAULT_OVERCOMMIT_PRIORITY],</span><br><span class="line">		.dq_label = <span class="string">"com.apple.root.default-overcommit-priority"</span>,</span><br><span class="line">		.dq_running = <span class="number">2</span>,</span><br><span class="line">		.dq_width = UINT32_MAX,</span><br><span class="line">		.dq_serialnum = <span class="number">7</span>,</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<h4 id="do-ref-cnt、do-xref-cnt"><a href="#do-ref-cnt、do-xref-cnt" class="headerlink" title="do_ref_cnt、do_xref_cnt"></a>do_ref_cnt、do_xref_cnt</h4><p><code>do_ref_cnt</code>和<code>do_xref_cnt</code>是引用计数，它们和GCD对象的内存管理相关。主队列的这两个值为<code>DISPATCH_OBJECT_GLOBAL_REFCNT</code>。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">dispatch_retain</span><span class="params">(<span class="keyword">dispatch_object_t</span> dou)</span> </span>&#123;</span><br><span class="line">	<span class="keyword">if</span> (slowpath(dou._do-&gt;do_xref_cnt == DISPATCH_OBJECT_GLOBAL_REFCNT)) &#123;</span><br><span class="line">		<span class="keyword">return</span>; <span class="comment">// global object</span></span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// ...</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">void</span> _dispatch_retain(<span class="keyword">dispatch_object_t</span> dou) &#123;</span><br><span class="line">	<span class="keyword">if</span> (slowpath(dou._do-&gt;do_ref_cnt == DISPATCH_OBJECT_GLOBAL_REFCNT)) &#123;</span><br><span class="line">		<span class="keyword">return</span>; <span class="comment">// global object</span></span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// ...</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">dispatch_release</span><span class="params">(<span class="keyword">dispatch_object_t</span> dou)</span> </span>&#123;</span><br><span class="line">	<span class="keyword">if</span> (slowpath(dou._do-&gt;do_xref_cnt == DISPATCH_OBJECT_GLOBAL_REFCNT)) &#123;</span><br><span class="line">		<span class="keyword">return</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// 调用_dispatch_release函数;</span></span><br><span class="line">	<span class="comment">// ...</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">void</span> _dispatch_release(<span class="keyword">dispatch_object_t</span> dou) &#123;</span><br><span class="line">	<span class="keyword">if</span> (slowpath(dou._do-&gt;do_ref_cnt == DISPATCH_OBJECT_GLOBAL_REFCNT)) &#123;</span><br><span class="line">		<span class="keyword">return</span>; <span class="comment">// global object</span></span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// 调用dx_dispose宏即调用do_dispose</span></span><br><span class="line">	<span class="comment">// ...</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>从上面这几个函数可以看出：</p>
+<ul>
+<li>主队列的生命周期是伴随着应用的，不会受retain和release的影响。</li>
+<li>当<code>do_ref_cnt</code>、<code>do_xref_cnt</code>这两个值同时为0的时候，对象才会被释放。</li>
+</ul>
+<h3 id="管理队列"><a href="#管理队列" class="headerlink" title="管理队列"></a>管理队列</h3><p>管理队列是GCD的内部队列，不对外公开，这个队列应该是用来扮演管理的角色，GCD定时器就用到了管理队列。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">struct dispatch_queue_s _dispatch_mgr_q = &#123;</span><br><span class="line">	.do_vtable = &amp;_dispatch_queue_mgr_vtable,</span><br><span class="line">	.do_ref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">	.do_xref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">	.do_suspend_cnt = DISPATCH_OBJECT_SUSPEND_LOCK,</span><br><span class="line">	.do_targetq = &amp;_dispatch_root_queues[</span><br><span class="line">			DISPATCH_ROOT_QUEUE_IDX_HIGH_OVERCOMMIT_PRIORITY],</span><br><span class="line">	.dq_label = &quot;com.apple.libdispatch-manager&quot;,</span><br><span class="line">	.dq_width = 1,</span><br><span class="line">	.dq_serialnum = 2, // 管理队列序列号</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<h4 id="do-vtable-1"><a href="#do-vtable-1" class="headerlink" title="do_vtable"></a>do_vtable</h4><p>管理队列的<code>do_vtable</code>为<code>_dispatch_queue_mgr_vtable</code>。</p>
+<h4 id="do-targetq-1"><a href="#do-targetq-1" class="headerlink" title="do_targetq"></a>do_targetq</h4><p>管理队列的目标队列：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">[DISPATCH_ROOT_QUEUE_IDX_HIGH_OVERCOMMIT_PRIORITY] = &#123;</span><br><span class="line">		.do_vtable = &amp;_dispatch_queue_root_vtable,</span><br><span class="line">		.do_ref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">		.do_xref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">		.do_suspend_cnt = DISPATCH_OBJECT_SUSPEND_LOCK,</span><br><span class="line">		.do_ctxt = &amp;_dispatch_root_queue_contexts[</span><br><span class="line">				DISPATCH_ROOT_QUEUE_IDX_HIGH_OVERCOMMIT_PRIORITY],</span><br><span class="line">		.dq_label = <span class="string">"com.apple.root.high-overcommit-priority"</span>,</span><br><span class="line">		.dq_running = <span class="number">2</span>,</span><br><span class="line">		.dq_width = UINT32_MAX,</span><br><span class="line">		.dq_serialnum = <span class="number">9</span>,</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<h4 id="do-ref-cnt、do-xref-cnt-1"><a href="#do-ref-cnt、do-xref-cnt-1" class="headerlink" title="do_ref_cnt、do_xref_cnt"></a>do_ref_cnt、do_xref_cnt</h4><p>管理队列的这两个值为<code>DISPATCH_OBJECT_GLOBAL_REFCNT</code>，所以和主队列的生命周期应该是一样的。</p>
+<h3 id="自定义队列"><a href="#自定义队列" class="headerlink" title="自定义队列"></a>自定义队列</h3><p>使用<code>dispatch_queue_create(const char *label, dispatch_queue_attr_t attr)</code>创建一个自定义的队列。它的源码如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">dispatch_queue_t</span> <span class="title">dispatch_queue_create</span><span class="params">(<span class="keyword">const</span> <span class="keyword">char</span> *label, <span class="keyword">dispatch_queue_attr_t</span> attr)</span> </span>&#123;</span><br><span class="line">	<span class="keyword">dispatch_queue_t</span> dq;</span><br><span class="line">	<span class="keyword">size_t</span> label_len;</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">if</span> (!label) &#123;</span><br><span class="line">		label = <span class="string">""</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	label_len = <span class="built_in">strlen</span>(label);</span><br><span class="line">	<span class="keyword">if</span> (label_len &lt; (DISPATCH_QUEUE_MIN_LABEL_SIZE - <span class="number">1</span>)) &#123;</span><br><span class="line">		label_len = (DISPATCH_QUEUE_MIN_LABEL_SIZE - <span class="number">1</span>);</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// XXX switch to malloc()</span></span><br><span class="line">	dq = <span class="built_in">calloc</span>(<span class="number">1u</span>l, <span class="keyword">sizeof</span>(struct dispatch_queue_s) -</span><br><span class="line">				DISPATCH_QUEUE_MIN_LABEL_SIZE - DISPATCH_QUEUE_CACHELINE_PAD +</span><br><span class="line">				label_len + <span class="number">1</span>);</span><br><span class="line">	<span class="keyword">if</span> (slowpath(!dq)) &#123;</span><br><span class="line">		<span class="keyword">return</span> dq;</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// _dispatch_queue_init(dq);</span></span><br><span class="line">	<span class="comment">// 队列初始化展开如下</span></span><br><span class="line">	dq-&gt;do_vtable = &amp;_dispatch_queue_vtable;</span><br><span class="line">	dq-&gt;do_next = DISPATCH_OBJECT_LISTLESS;</span><br><span class="line">	dq-&gt;do_ref_cnt = <span class="number">1</span>;</span><br><span class="line">	dq-&gt;do_xref_cnt = <span class="number">1</span>;</span><br><span class="line">	<span class="comment">// Default target queue is overcommit!</span></span><br><span class="line">	<span class="comment">// 使用的目标队列：_dispatch_root_queues[DISPATCH_ROOT_QUEUE_IDX_DEFAULT_OVERCOMMIT_PRIORITY]</span></span><br><span class="line">	dq-&gt;do_targetq = _dispatch_get_root_queue(<span class="number">0</span>, <span class="literal">true</span>);</span><br><span class="line">	dq-&gt;dq_running = <span class="number">0</span>;</span><br><span class="line">	dq-&gt;dq_width = <span class="number">1</span>;</span><br><span class="line">	dq-&gt;dq_serialnum = dispatch_atomic_inc(&amp;_dispatch_queue_serial_numbers) - <span class="number">1</span>;</span><br><span class="line">	</span><br><span class="line">	<span class="built_in">strcpy</span>(dq-&gt;dq_label, label);</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">if</span> (fastpath(!attr)) &#123;</span><br><span class="line">		<span class="keyword">return</span> dq;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// 如果是并发队列，设置最大并发数，UINT32_MAX可以看成不限制最大并发数</span></span><br><span class="line">	<span class="keyword">if</span> (fastpath(attr == DISPATCH_QUEUE_CONCURRENT)) &#123;</span><br><span class="line">		dq-&gt;dq_width = UINT32_MAX;</span><br><span class="line">		<span class="comment">// 设置目标队列，对于并发队列_dispatch_get_root_queue函数中的overcommit传的是false，获取的值： _dispatch_root_queues[DISPATCH_ROOT_QUEUE_IDX_DEFAULT_PRIORITY]</span></span><br><span class="line">		dq-&gt;do_targetq = _dispatch_get_root_queue(<span class="number">0</span>, <span class="literal">false</span>);</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		dispatch_debug_assert(!attr, <span class="string">"Invalid attribute"</span>);</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> dq;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="slowpath-x-、fastpath-x"><a href="#slowpath-x-、fastpath-x" class="headerlink" title="slowpath(x)、fastpath(x)"></a>slowpath(x)、fastpath(x)</h4><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> fastpath(x) ((typeof(x))__builtin_expect((long)(x), ~0l)) <span class="comment">// ~0l就是1</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> slowpath(x) ((typeof(x))__builtin_expect((long)(x), 0l))</span></span><br></pre></td></tr></table></figure>
+<p><code>fastpath(x)</code>表示x的值极大概率为1，即多数情况下会发生。<code>slowpath(x)</code>表示x的值极大概率为0，即多数情况下不会发生。<br><code>__builtin_expect</code>来帮助程序员处理分支预测，优化程序，这个函数的语义是：我期望表达式的值等于常量C，编译器应当根据我提供的期望值进行优化。</p>
+<h4 id="do-vtable-2"><a href="#do-vtable-2" class="headerlink" title="do_vtable"></a>do_vtable</h4><p>与主队列一样，自定义队列的<code>do_vtable</code>也是<code>_dispatch_queue_vtable</code>。</p>
+<h4 id="do-targetq-2"><a href="#do-targetq-2" class="headerlink" title="do_targetq"></a>do_targetq</h4><p>自定义队列的目标队列有两种：</p>
+<ol>
+<li>如果是串行队列，则使用<code>_dispatch_get_root_queue(0, true)</code>函数获取目标队列，获取到的目标队列是<code>_dispatch_root_queues[DISPATCH_ROOT_QUEUE_IDX_DEFAULT_OVERCOMMIT_PRIORITY]</code>。</li>
+<li>如果是并发队列，则使用<code>_dispatch_get_root_queue(0, false)</code>函数获取目标队列，获取到的目标队列是<code>_dispatch_root_queues[DISPATCH_ROOT_QUEUE_IDX_DEFAULT_PRIORITY]</code>。</li>
+</ol>
+<p><code>_dispatch_get_root_queue(long priority, bool overcommit)</code>函数的<code>overcommit</code>参数代表队列在执行block时，无论系统多忙都会新开一个线程，这样做的目的是不会造成某个线程过载。</p>
+<!--看起来自定义队列更像是全局队列的一个代理。在自定义队列创建的时候默认其目标队列为`_dispatch_get_root_queue(0, true)`。其中`0`代表优先级`DISPATCH_QUEUE_PRIORITY_DEFAULT`，`true`代表是否是`overcommit`。`overcommit`参数表示该队列在执行block时，无论系统多忙都会新开一个线程，这样做的目的是不会造成某个线程过载。如果是自定义并发队列的话，`do_targetq`会被设置为`_dispatch_get_root_queue(0, false)`。
+
+值得注意的是，主队列的目标队列也是一个全局队列，全局队列的底层就是普通的线程池（这个会在全局队列中讲到）。-->
+<h4 id="dq-serialnum"><a href="#dq-serialnum" class="headerlink" title="dq_serialnum"></a>dq_serialnum</h4><p><code>dq_serialnum</code>是在<code>_dispatch_queue_serial_numbers</code>基础上进行原子操作加1，即从12开始累加。1到11被保留的序列号定义如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">// skip zero</span><br><span class="line">// 1 - main_q</span><br><span class="line">// 2 - mgr_q</span><br><span class="line">// 3 - _unused_</span><br><span class="line">// 4,5,6,7,8,9,10,11 - global queues</span><br><span class="line">// we use &apos;xadd&apos; on Intel, so the initial value == next assigned</span><br></pre></td></tr></table></figure>
+<p>其中1用于主队列，2用于管理队列，3暂时没有被使用，4~11是用于全局队列的。由于看的源码版本比较老了，后面苹果有新增了几个队列。</p>
+<h3 id="全局队列"><a href="#全局队列" class="headerlink" title="全局队列"></a>全局队列</h3><p>上面说了很多全局队列，现在我们来看一下全局队列是如何定义的。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">dispatch_queue_t</span> <span class="title">dispatch_get_global_queue</span><span class="params">(<span class="keyword">long</span> priority, <span class="keyword">unsigned</span> <span class="keyword">long</span> flags)</span> </span>&#123;</span><br><span class="line">	<span class="keyword">if</span> (flags &amp; ~DISPATCH_QUEUE_OVERCOMMIT) &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> _dispatch_get_root_queue(priority, flags &amp; DISPATCH_QUEUE_OVERCOMMIT);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">inline</span> <span class="keyword">dispatch_queue_t</span> _dispatch_get_root_queue(<span class="keyword">long</span> priority, <span class="keyword">bool</span> overcommit) &#123;</span><br><span class="line">	<span class="keyword">if</span> (overcommit) <span class="keyword">switch</span> (priority) &#123;</span><br><span class="line">	<span class="keyword">case</span> DISPATCH_QUEUE_PRIORITY_LOW:</span><br><span class="line">		<span class="keyword">return</span> &amp;_dispatch_root_queues[DISPATCH_ROOT_QUEUE_IDX_LOW_OVERCOMMIT_PRIORITY];</span><br><span class="line">	<span class="keyword">case</span> DISPATCH_QUEUE_PRIORITY_DEFAULT:</span><br><span class="line">		<span class="keyword">return</span> &amp;_dispatch_root_queues[DISPATCH_ROOT_QUEUE_IDX_DEFAULT_OVERCOMMIT_PRIORITY];</span><br><span class="line">	<span class="keyword">case</span> DISPATCH_QUEUE_PRIORITY_HIGH:</span><br><span class="line">		<span class="keyword">return</span> &amp;_dispatch_root_queues[DISPATCH_ROOT_QUEUE_IDX_HIGH_OVERCOMMIT_PRIORITY];</span><br><span class="line">	<span class="keyword">case</span> DISPATCH_QUEUE_PRIORITY_BACKGROUND:</span><br><span class="line">		<span class="keyword">return</span> &amp;_dispatch_root_queues[DISPATCH_ROOT_QUEUE_IDX_BACKGROUND_OVERCOMMIT_PRIORITY];</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">switch</span> (priority) &#123;</span><br><span class="line">	<span class="keyword">case</span> DISPATCH_QUEUE_PRIORITY_LOW:</span><br><span class="line">		<span class="keyword">return</span> &amp;_dispatch_root_queues[DISPATCH_ROOT_QUEUE_IDX_LOW_PRIORITY];</span><br><span class="line">	<span class="keyword">case</span> DISPATCH_QUEUE_PRIORITY_DEFAULT:</span><br><span class="line">		<span class="keyword">return</span> &amp;_dispatch_root_queues[DISPATCH_ROOT_QUEUE_IDX_DEFAULT_PRIORITY];</span><br><span class="line">	<span class="keyword">case</span> DISPATCH_QUEUE_PRIORITY_HIGH:</span><br><span class="line">		<span class="keyword">return</span> &amp;_dispatch_root_queues[DISPATCH_ROOT_QUEUE_IDX_HIGH_PRIORITY];</span><br><span class="line">	<span class="keyword">case</span> DISPATCH_QUEUE_PRIORITY_BACKGROUND:</span><br><span class="line">		<span class="keyword">return</span> &amp;_dispatch_root_queues[DISPATCH_ROOT_QUEUE_IDX_BACKGROUND_PRIORITY];</span><br><span class="line">	<span class="keyword">default</span>:</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">dispatch_queue_s</span> _<span class="title">dispatch_root_queues</span>[] = &#123;</span></span><br><span class="line">	[DISPATCH_ROOT_QUEUE_IDX_LOW_PRIORITY] = &#123;</span><br><span class="line">		.do_vtable = &amp;_dispatch_queue_root_vtable,</span><br><span class="line">		.do_ref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">		.do_xref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">		.do_suspend_cnt = DISPATCH_OBJECT_SUSPEND_LOCK,</span><br><span class="line">		.do_ctxt = &amp;_dispatch_root_queue_contexts[</span><br><span class="line">				DISPATCH_ROOT_QUEUE_IDX_LOW_PRIORITY],</span><br><span class="line"></span><br><span class="line">		.dq_label = <span class="string">"com.apple.root.low-priority"</span>,</span><br><span class="line">		.dq_running = <span class="number">2</span>,</span><br><span class="line">		.dq_width = UINT32_MAX,</span><br><span class="line">		.dq_serialnum = <span class="number">4</span>,</span><br><span class="line">	&#125;,</span><br><span class="line">	[DISPATCH_ROOT_QUEUE_IDX_LOW_OVERCOMMIT_PRIORITY] = &#123;</span><br><span class="line">		.do_vtable = &amp;_dispatch_queue_root_vtable,</span><br><span class="line">		.do_ref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">		.do_xref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">		.do_suspend_cnt = DISPATCH_OBJECT_SUSPEND_LOCK,</span><br><span class="line">		.do_ctxt = &amp;_dispatch_root_queue_contexts[</span><br><span class="line">				DISPATCH_ROOT_QUEUE_IDX_LOW_OVERCOMMIT_PRIORITY],</span><br><span class="line"></span><br><span class="line">		.dq_label = <span class="string">"com.apple.root.low-overcommit-priority"</span>,</span><br><span class="line">		.dq_running = <span class="number">2</span>,</span><br><span class="line">		.dq_width = UINT32_MAX,</span><br><span class="line">		.dq_serialnum = <span class="number">5</span>,</span><br><span class="line">	&#125;,</span><br><span class="line">	[DISPATCH_ROOT_QUEUE_IDX_DEFAULT_PRIORITY] = &#123;</span><br><span class="line">		.do_vtable = &amp;_dispatch_queue_root_vtable,</span><br><span class="line">		.do_ref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">		.do_xref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">		.do_suspend_cnt = DISPATCH_OBJECT_SUSPEND_LOCK,</span><br><span class="line">		.do_ctxt = &amp;_dispatch_root_queue_contexts[</span><br><span class="line">				DISPATCH_ROOT_QUEUE_IDX_DEFAULT_PRIORITY],</span><br><span class="line"></span><br><span class="line">		.dq_label = <span class="string">"com.apple.root.default-priority"</span>,</span><br><span class="line">		.dq_running = <span class="number">2</span>,</span><br><span class="line">		.dq_width = UINT32_MAX,</span><br><span class="line">		.dq_serialnum = <span class="number">6</span>,</span><br><span class="line">	&#125;,</span><br><span class="line">	[DISPATCH_ROOT_QUEUE_IDX_DEFAULT_OVERCOMMIT_PRIORITY] = &#123;</span><br><span class="line">		.do_vtable = &amp;_dispatch_queue_root_vtable,</span><br><span class="line">		.do_ref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">		.do_xref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">		.do_suspend_cnt = DISPATCH_OBJECT_SUSPEND_LOCK,</span><br><span class="line">		.do_ctxt = &amp;_dispatch_root_queue_contexts[</span><br><span class="line">				DISPATCH_ROOT_QUEUE_IDX_DEFAULT_OVERCOMMIT_PRIORITY],</span><br><span class="line"></span><br><span class="line">		.dq_label = <span class="string">"com.apple.root.default-overcommit-priority"</span>,</span><br><span class="line">		.dq_running = <span class="number">2</span>,</span><br><span class="line">		.dq_width = UINT32_MAX,</span><br><span class="line">		.dq_serialnum = <span class="number">7</span>,</span><br><span class="line">	&#125;,</span><br><span class="line">	[DISPATCH_ROOT_QUEUE_IDX_HIGH_PRIORITY] = &#123;</span><br><span class="line">		.do_vtable = &amp;_dispatch_queue_root_vtable,</span><br><span class="line">		.do_ref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">		.do_xref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">		.do_suspend_cnt = DISPATCH_OBJECT_SUSPEND_LOCK,</span><br><span class="line">		.do_ctxt = &amp;_dispatch_root_queue_contexts[</span><br><span class="line">				DISPATCH_ROOT_QUEUE_IDX_HIGH_PRIORITY],</span><br><span class="line"></span><br><span class="line">		.dq_label = <span class="string">"com.apple.root.high-priority"</span>,</span><br><span class="line">		.dq_running = <span class="number">2</span>,</span><br><span class="line">		.dq_width = UINT32_MAX,</span><br><span class="line">		.dq_serialnum = <span class="number">8</span>,</span><br><span class="line">	&#125;,</span><br><span class="line">	[DISPATCH_ROOT_QUEUE_IDX_HIGH_OVERCOMMIT_PRIORITY] = &#123;</span><br><span class="line">		.do_vtable = &amp;_dispatch_queue_root_vtable,</span><br><span class="line">		.do_ref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">		.do_xref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">		.do_suspend_cnt = DISPATCH_OBJECT_SUSPEND_LOCK,</span><br><span class="line">		.do_ctxt = &amp;_dispatch_root_queue_contexts[</span><br><span class="line">				DISPATCH_ROOT_QUEUE_IDX_HIGH_OVERCOMMIT_PRIORITY],</span><br><span class="line"></span><br><span class="line">		.dq_label = <span class="string">"com.apple.root.high-overcommit-priority"</span>,</span><br><span class="line">		.dq_running = <span class="number">2</span>,</span><br><span class="line">		.dq_width = UINT32_MAX,</span><br><span class="line">		.dq_serialnum = <span class="number">9</span>,</span><br><span class="line">	&#125;,</span><br><span class="line">	[DISPATCH_ROOT_QUEUE_IDX_BACKGROUND_PRIORITY] = &#123;</span><br><span class="line">		.do_vtable = &amp;_dispatch_queue_root_vtable,</span><br><span class="line">		.do_ref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">		.do_xref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">		.do_suspend_cnt = DISPATCH_OBJECT_SUSPEND_LOCK,</span><br><span class="line">		.do_ctxt = &amp;_dispatch_root_queue_contexts[</span><br><span class="line">				DISPATCH_ROOT_QUEUE_IDX_BACKGROUND_PRIORITY],</span><br><span class="line"></span><br><span class="line">		.dq_label = <span class="string">"com.apple.root.background-priority"</span>,</span><br><span class="line">		.dq_running = <span class="number">2</span>,</span><br><span class="line">		.dq_width = UINT32_MAX,</span><br><span class="line">		.dq_serialnum = <span class="number">10</span>,</span><br><span class="line">	&#125;,</span><br><span class="line">	[DISPATCH_ROOT_QUEUE_IDX_BACKGROUND_OVERCOMMIT_PRIORITY] = &#123;</span><br><span class="line">		.do_vtable = &amp;_dispatch_queue_root_vtable,</span><br><span class="line">		.do_ref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">		.do_xref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,</span><br><span class="line">		.do_suspend_cnt = DISPATCH_OBJECT_SUSPEND_LOCK,</span><br><span class="line">		.do_ctxt = &amp;_dispatch_root_queue_contexts[</span><br><span class="line">				DISPATCH_ROOT_QUEUE_IDX_BACKGROUND_OVERCOMMIT_PRIORITY],</span><br><span class="line"></span><br><span class="line">		.dq_label = <span class="string">"com.apple.root.background-overcommit-priority"</span>,</span><br><span class="line">		.dq_running = <span class="number">2</span>,</span><br><span class="line">		.dq_width = UINT32_MAX,</span><br><span class="line">		.dq_serialnum = <span class="number">11</span>,</span><br><span class="line">	&#125;,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<h4 id="do-vtable-3"><a href="#do-vtable-3" class="headerlink" title="do_vtable"></a>do_vtable</h4><p>全局队列的<code>do_vtable</code>为<code>_dispatch_queue_root_vtable</code>。前面提到<code>_dispatch_queue_root_vtable</code>的检测函数（<code>do_probe</code>）为<code>_dispatch_queue_wakeup_global</code>，这个函数用来唤醒全局队列，具体的后面分析队列唤醒的时候再讲。</p>
+<h4 id="do-targetq-3"><a href="#do-targetq-3" class="headerlink" title="do_targetq"></a>do_targetq</h4><p>无论是主队列、管理队列还是自定义队列，它们都使用了全局队列（就是从root queue中获取的）作为目标队列，但是全局队列并没有设置<code>do_targetq</code>。</p>
+<p>在<a href="https://www.objc.io/issues/2-concurrency/concurrency-apis-and-pitfalls/" target="_blank" rel="noopener">Concurrent Programming: APIs and Challenges</a>提到：</p>
+<blockquote>
+<p>While custom queues are a powerful abstraction, all blocks you schedule on them will ultimately trickle down to one of the system’s global queues and its thread pool(s).</p>
+</blockquote>
+<p>虽然自定义队列是一个强大的抽象，但你在队列上安排的所有Block最终都会落到系统的某一个全局队列及其线程池中。那也就是说GCD用到的queue，无论是自定义队列，或是获取系统的主队列、全局队列、管理队列，其最终都是落脚于GCD root queue中。GCD管理的也不过这些root queue。</p>
+<h4 id="do-ref-cnt、do-xref-cnt-2"><a href="#do-ref-cnt、do-xref-cnt-2" class="headerlink" title="do_ref_cnt、do_xref_cnt"></a>do_ref_cnt、do_xref_cnt</h4><p>管理队列的这两个值为<code>DISPATCH_OBJECT_GLOBAL_REFCNT</code>，所以和主队列的生命周期应该是一样的。</p>
+<h4 id="do-ctxt"><a href="#do-ctxt" class="headerlink" title="do_ctxt"></a>do_ctxt</h4><p>全局队列中有一个上下文的属性，用来存储线程池相关数据，比如用于线程挂起和唤醒的信号量、线程池尺寸等。它的定义如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">dispatch_root_queue_context_s</span> _<span class="title">dispatch_root_queue_contexts</span>[] = &#123;</span></span><br><span class="line">	[DISPATCH_ROOT_QUEUE_IDX_LOW_PRIORITY] = &#123;</span><br><span class="line">#<span class="keyword">if</span> DISPATCH_ENABLE_THREAD_POOL</span><br><span class="line">		.dgq_thread_mediator = &amp;_dispatch_thread_mediator[</span><br><span class="line">				DISPATCH_ROOT_QUEUE_IDX_LOW_PRIORITY],</span><br><span class="line">		.dgq_thread_pool_size = MAX_THREAD_COUNT,</span><br><span class="line">#endif</span><br><span class="line">	&#125;,</span><br><span class="line">	[DISPATCH_ROOT_QUEUE_IDX_LOW_OVERCOMMIT_PRIORITY] = &#123;</span><br><span class="line">#<span class="keyword">if</span> DISPATCH_ENABLE_THREAD_POOL</span><br><span class="line">		.dgq_thread_mediator = &amp;_dispatch_thread_mediator[</span><br><span class="line">				DISPATCH_ROOT_QUEUE_IDX_LOW_OVERCOMMIT_PRIORITY],</span><br><span class="line">		.dgq_thread_pool_size = MAX_THREAD_COUNT,</span><br><span class="line">#endif</span><br><span class="line">	&#125;,</span><br><span class="line">	[DISPATCH_ROOT_QUEUE_IDX_DEFAULT_PRIORITY] = &#123;</span><br><span class="line">#<span class="keyword">if</span> DISPATCH_ENABLE_THREAD_POOL</span><br><span class="line">		.dgq_thread_mediator = &amp;_dispatch_thread_mediator[</span><br><span class="line">				DISPATCH_ROOT_QUEUE_IDX_DEFAULT_PRIORITY],</span><br><span class="line">		.dgq_thread_pool_size = MAX_THREAD_COUNT,</span><br><span class="line">#endif</span><br><span class="line">	&#125;,</span><br><span class="line">	[DISPATCH_ROOT_QUEUE_IDX_DEFAULT_OVERCOMMIT_PRIORITY] = &#123;</span><br><span class="line">#<span class="keyword">if</span> DISPATCH_ENABLE_THREAD_POOL</span><br><span class="line">		.dgq_thread_mediator = &amp;_dispatch_thread_mediator[</span><br><span class="line">				DISPATCH_ROOT_QUEUE_IDX_DEFAULT_OVERCOMMIT_PRIORITY],</span><br><span class="line">		.dgq_thread_pool_size = MAX_THREAD_COUNT,</span><br><span class="line">#endif</span><br><span class="line">	&#125;,</span><br><span class="line">	[DISPATCH_ROOT_QUEUE_IDX_HIGH_PRIORITY] = &#123;</span><br><span class="line">#<span class="keyword">if</span> DISPATCH_ENABLE_THREAD_POOL</span><br><span class="line">		.dgq_thread_mediator = &amp;_dispatch_thread_mediator[</span><br><span class="line">				DISPATCH_ROOT_QUEUE_IDX_HIGH_PRIORITY],</span><br><span class="line">		.dgq_thread_pool_size = MAX_THREAD_COUNT,</span><br><span class="line">#endif</span><br><span class="line">	&#125;,</span><br><span class="line">	[DISPATCH_ROOT_QUEUE_IDX_HIGH_OVERCOMMIT_PRIORITY] = &#123;</span><br><span class="line">#<span class="keyword">if</span> DISPATCH_ENABLE_THREAD_POOL</span><br><span class="line">		.dgq_thread_mediator = &amp;_dispatch_thread_mediator[</span><br><span class="line">				DISPATCH_ROOT_QUEUE_IDX_HIGH_OVERCOMMIT_PRIORITY],</span><br><span class="line">		.dgq_thread_pool_size = MAX_THREAD_COUNT,</span><br><span class="line">#endif</span><br><span class="line">	&#125;,</span><br><span class="line">	[DISPATCH_ROOT_QUEUE_IDX_BACKGROUND_PRIORITY] = &#123;</span><br><span class="line">#<span class="keyword">if</span> DISPATCH_ENABLE_THREAD_POOL</span><br><span class="line">		.dgq_thread_mediator = &amp;_dispatch_thread_mediator[</span><br><span class="line">				DISPATCH_ROOT_QUEUE_IDX_BACKGROUND_PRIORITY],</span><br><span class="line">		.dgq_thread_pool_size = MAX_THREAD_COUNT,</span><br><span class="line">#endif</span><br><span class="line">	&#125;,</span><br><span class="line">	[DISPATCH_ROOT_QUEUE_IDX_BACKGROUND_OVERCOMMIT_PRIORITY] = &#123;</span><br><span class="line">#<span class="keyword">if</span> DISPATCH_ENABLE_THREAD_POOL</span><br><span class="line">		.dgq_thread_mediator = &amp;_dispatch_thread_mediator[</span><br><span class="line">				DISPATCH_ROOT_QUEUE_IDX_BACKGROUND_OVERCOMMIT_PRIORITY],</span><br><span class="line">		.dgq_thread_pool_size = MAX_THREAD_COUNT,</span><br><span class="line">#endif</span><br><span class="line">	&#125;,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<h2 id="队列的同步：dispatch-sync分析"><a href="#队列的同步：dispatch-sync分析" class="headerlink" title="队列的同步：dispatch_sync分析"></a>队列的同步：dispatch_sync分析</h2><p>测试代码</p>
+<figure class="highlight swift"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 串行队列</span></span><br><span class="line"><span class="keyword">let</span> sQueue = <span class="type">DispatchQueue</span>(label: <span class="string">"sQueue"</span>)</span><br><span class="line"><span class="built_in">print</span>(<span class="number">1</span>)</span><br><span class="line">sQueue.sync &#123; <span class="built_in">print</span>(<span class="string">"\(2)：\(Thread.current)"</span>) &#125;</span><br><span class="line"><span class="built_in">print</span>(<span class="number">3</span>)</span><br><span class="line">sQueue.sync &#123; <span class="built_in">print</span>(<span class="string">"\(4)：\(Thread.current)"</span>) &#125;</span><br><span class="line"><span class="built_in">print</span>(<span class="number">5</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 并行队列</span></span><br><span class="line"><span class="keyword">let</span> cQueue = <span class="type">DispatchQueue</span>(label: <span class="string">"cQueue"</span>, attributes: [.concurrent])</span><br><span class="line"><span class="built_in">print</span>(<span class="number">1</span>)</span><br><span class="line">cQueue.sync &#123; <span class="built_in">print</span>(<span class="string">"\(2)：\(Thread.current)"</span>) &#125;</span><br><span class="line"><span class="built_in">print</span>(<span class="number">3</span>)</span><br><span class="line">cQueue.sync &#123; <span class="built_in">print</span>(<span class="string">"\(4)：\(Thread.current)"</span>) &#125;</span><br><span class="line"><span class="built_in">print</span>(<span class="number">5</span>)</span><br></pre></td></tr></table></figure>
+<p>执行结果<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">1</span><br><span class="line">2：&lt;NSThread: 0x600002478980&gt;&#123;number = 1, name = main&#125;</span><br><span class="line">3</span><br><span class="line">4：&lt;NSThread: 0x600002478980&gt;&#123;number = 1, name = main&#125;</span><br><span class="line">5</span><br><span class="line">1</span><br><span class="line">2：&lt;NSThread: 0x600002478980&gt;&#123;number = 1, name = main&#125;</span><br><span class="line">3</span><br><span class="line">4：&lt;NSThread: 0x600002478980&gt;&#123;number = 1, name = main&#125;</span><br><span class="line">5</span><br></pre></td></tr></table></figure></p>
+<p>虽然省略主队列和全局队列的测试，但是结果是一样的。<strong>队列同步执行任务的过程，是不会开辟新的线程，所有任务在当前线程中执行，且会阻塞线程。</strong></p>
+<h3 id="入口函数：dispatch-sync"><a href="#入口函数：dispatch-sync" class="headerlink" title="入口函数：dispatch_sync"></a>入口函数：dispatch_sync</h3><p><code>dispatch_sync</code>的源码如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">dispatch_sync</span><span class="params">(<span class="keyword">dispatch_queue_t</span> dq, <span class="keyword">void</span> (^work)(<span class="keyword">void</span>))</span> </span>&#123;</span><br><span class="line">	<span class="comment">// DISPATCH_COCOA_COMPAT是Mac OS下才会走的</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">if</span> DISPATCH_COCOA_COMPAT</span></span><br><span class="line">	<span class="comment">// 是否是主队列</span></span><br><span class="line">	<span class="keyword">if</span> (slowpath(dq == &amp;_dispatch_main_q)) &#123;</span><br><span class="line">		<span class="comment">// 内部也是执行dispatch_sync_f函数</span></span><br><span class="line">		<span class="keyword">return</span> _dispatch_sync_slow(dq, work);</span><br><span class="line">	&#125;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">Block_basic</span> *<span class="title">bb</span> = (<span class="title">void</span> *)<span class="title">work</span>;</span></span><br><span class="line">	dispatch_sync_f(dq, work, (<span class="keyword">dispatch_function_t</span>)bb-&gt;Block_invoke);</span><br><span class="line">&#125;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br></pre></td></tr></table></figure>
+<p><code>_dispatch_sync_slow</code>函数内部也是执行<code>dispatch_sync_f</code>函数，所以<code>dispatch_sync</code>的调用本质即<code>dispatch_sync_f</code>函数。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">dispatch_sync_f</span><span class="params">(<span class="keyword">dispatch_queue_t</span> dq, <span class="keyword">void</span> *ctxt, <span class="keyword">dispatch_function_t</span> func)</span> </span>&#123;</span><br><span class="line">	<span class="comment">// 串行队列包括主队列</span></span><br><span class="line">	<span class="keyword">if</span> (fastpath(dq-&gt;dq_width == <span class="number">1</span>)) &#123;</span><br><span class="line">		<span class="keyword">return</span> dispatch_barrier_sync_f(dq, ctxt, func);</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// 全局队列，全局队列是没有do_targetq的，主队列/管理队列/自定义队列都有</span></span><br><span class="line">	<span class="keyword">if</span> (slowpath(!dq-&gt;do_targetq)) &#123;</span><br><span class="line">		<span class="comment">// the global root queues do not need strict ordering</span></span><br><span class="line">		(<span class="keyword">void</span>)dispatch_atomic_add2o(dq, dq_running, <span class="number">2</span>);</span><br><span class="line">		<span class="keyword">return</span> _dispatch_sync_f_invoke(dq, ctxt, func);</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// 其他队列</span></span><br><span class="line">	_dispatch_sync_f2(dq, ctxt, func);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>同步执行任务的时候分成了三种情况：</p>
+<ol>
+<li>如果是串行队列，执行<code>dispatch_barrier_sync_f</code>即栅栏同步函数；</li>
+<li>如果是全局队列，执行<code>_dispatch_sync_f_invoke</code>；</li>
+<li>如果是其他队列，执行<code>_dispatch_sync_f2</code>。</li>
+</ol>
+<h3 id="重点函数：dispatch-barrier-sync-f"><a href="#重点函数：dispatch-barrier-sync-f" class="headerlink" title="重点函数：dispatch_barrier_sync_f"></a>重点函数：dispatch_barrier_sync_f</h3><p>在分析<code>dispatch_barrier_sync_f</code>这个函数前，我们看一下<code>dispatch_barrier_sync</code>函数即同步栅栏函数。它的实现如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">dispatch_barrier_sync</span><span class="params">(<span class="keyword">dispatch_queue_t</span> dq, <span class="keyword">void</span> (^work)(<span class="keyword">void</span>))</span> </span>&#123;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">if</span> DISPATCH_COCOA_COMPAT</span></span><br><span class="line">	<span class="keyword">if</span> (slowpath(dq == &amp;_dispatch_main_q)) &#123;</span><br><span class="line">	   <span class="comment">// 内部调用dispatch_barrier_sync_f函数</span></span><br><span class="line">		<span class="keyword">return</span> _dispatch_barrier_sync_slow(dq, work);</span><br><span class="line">	&#125;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">Block_basic</span> *<span class="title">bb</span> = (<span class="title">void</span> *)<span class="title">work</span>;</span></span><br><span class="line">	dispatch_barrier_sync_f(dq, work, (<span class="keyword">dispatch_function_t</span>)bb-&gt;Block_invoke);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>它的底层也是调用<code>dispatch_barrier_sync_f</code>函数。如果是串行队列压入同步任务，那么当前任务就必须等待前面的任务执行完成后才能执行，源代码就会调用<code>dispatch_barrier_sync_f</code>函数完成上面的效果。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line">DISPATCH_NOINLINE</span><br><span class="line"><span class="keyword">void</span></span><br><span class="line">dispatch_barrier_sync_f(<span class="keyword">dispatch_queue_t</span> dq, <span class="keyword">void</span> *ctxt, <span class="keyword">dispatch_function_t</span> func) &#123;</span><br><span class="line">	<span class="comment">// 1) ensure that this thread hasn't enqueued anything ahead of this call</span></span><br><span class="line">	<span class="comment">// 2) the queue is not suspended</span></span><br><span class="line">	<span class="comment">// 1) 确保此线程在此调用之前没有入队</span></span><br><span class="line">	<span class="comment">// 2) 队列未挂起</span></span><br><span class="line">	</span><br><span class="line">	<span class="comment">// 第1步：如果串行队列中存在其他任务或者队列被挂起，进入_dispatch_barrier_sync_f_slow，</span></span><br><span class="line">	<span class="comment">// 等待这个队列中的其他任务完成(用信号量的方式通知)，然后执行这个任务。</span></span><br><span class="line">	<span class="comment">// 多数情况下不会发生</span></span><br><span class="line">	<span class="keyword">if</span> (slowpath(dq-&gt;dq_items_tail) || slowpath(DISPATCH_OBJECT_SUSPENDED(dq)))&#123;</span><br><span class="line">		<span class="keyword">return</span> _dispatch_barrier_sync_f_slow(dq, ctxt, func);</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// 第2步：检查队列的dq_running状态，如果没有运行，进入_dispatch_barrier_sync_f_slow，等待激活。</span></span><br><span class="line">	<span class="comment">// bool __sync_bool_compare_and_swap (type *ptr, type oldval, type newval, ...)</span></span><br><span class="line">	<span class="comment">// 比较*ptr与oldval的值，如果两者相等，则将newval更新到*ptr并返回true</span></span><br><span class="line">	<span class="comment">// dispatch_atomic_cmpxchg2o(dq, dq_running, 0, 1)相当于dq-&gt;dq_running为0的时候将</span></span><br><span class="line">	<span class="comment">// dq-&gt;dq_running设置为1，并返回true</span></span><br><span class="line">	<span class="keyword">if</span> (slowpath(!dispatch_atomic_cmpxchg2o(dq, dq_running, <span class="number">0</span>, <span class="number">1</span>))) &#123;</span><br><span class="line">		<span class="comment">// global queues and main queue bound to main thread always falls into</span></span><br><span class="line">		<span class="comment">// the slow case</span></span><br><span class="line">		<span class="comment">// 全局队列和绑定到主线程的主队列始终属于慢速情况即会进入_dispatch_barrier_sync_f_slow函数</span></span><br><span class="line">		<span class="keyword">return</span> _dispatch_barrier_sync_f_slow(dq, ctxt, func);</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// 第3步：有多重队列，寻找真正的目标队列，其实还是回到了dispatch_sync_f方法</span></span><br><span class="line">	<span class="keyword">if</span> (slowpath(dq-&gt;do_targetq-&gt;do_targetq)) &#123;</span><br><span class="line">		<span class="keyword">return</span> _dispatch_barrier_sync_f_recurse(dq, ctxt, func);</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// 第4步：队列无任务执行，调用_dispatch_barrier_sync_f_invoke执行任务。</span></span><br><span class="line">	<span class="comment">// 内部调用_dispatch_function_invoke去执行任务</span></span><br><span class="line">	_dispatch_barrier_sync_f_invoke(dq, ctxt, func);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这里涉及到三个函数：</p>
+<ol>
+<li><code>_dispatch_barrier_sync_f_slow</code>函数内部使用了线程对应的信号量并且调用<code>wait</code> 方法</li>
+<li><code>_dispatch_barrier_sync_f_recurse</code>函数内部调用了<code>dispatch_sync_f</code>函数，还是在寻找真正的目标队列</li>
+<li>如果队列无任务执行，调用<code>_dispatch_barrier_sync_f_invoke</code>执行任务。执行任务的时候会调用<code>_dispatch_function_invoke</code>函数。</li>
+</ol>
+<h3 id="dispatch-barrier-sync-f-invoke"><a href="#dispatch-barrier-sync-f-invoke" class="headerlink" title="_dispatch_barrier_sync_f_invoke"></a>_dispatch_barrier_sync_f_invoke</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">DISPATCH_NOINLINE</span><br><span class="line"><span class="keyword">static</span> <span class="keyword">void</span></span><br><span class="line">_dispatch_barrier_sync_f_invoke(<span class="keyword">dispatch_queue_t</span> dq, <span class="keyword">void</span> *ctxt, <span class="keyword">dispatch_function_t</span> func) &#123;</span><br><span class="line">    <span class="comment">// _dispatch_function_invoke的实现</span></span><br><span class="line">    <span class="comment">// 将当前线程的dispatch_queue_key设置为dq，然后执行任务，</span></span><br><span class="line">    <span class="comment">// 执行完之后再恢复到之前的old_dq</span></span><br><span class="line">    <span class="keyword">dispatch_queue_t</span> old_dq = _dispatch_thread_getspecific(dispatch_queue_key);</span><br><span class="line">	_dispatch_thread_setspecific(dispatch_queue_key, dq);</span><br><span class="line">	_dispatch_client_callout(ctxt, func);</span><br><span class="line">	_dispatch_workitem_inc();</span><br><span class="line">	_dispatch_thread_setspecific(dispatch_queue_key, old_dq);</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// 如果队列中存在其他任务，用信号量的方法唤醒，然后继续执行下一个任务</span></span><br><span class="line">	<span class="keyword">if</span> (slowpath(dq-&gt;dq_items_tail)) &#123;</span><br><span class="line">		<span class="keyword">return</span> _dispatch_barrier_sync_f2(dq);</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// dispatch_atomic_dec2o这个宏，会调用GCC内置的函数 __sync_sub_and_fetch，实现减法的原子性操作。因此这一行的意思是将dq_running的值减1，然后判断是否与0相等。</span></span><br><span class="line">	<span class="comment">// _dispatch_wakeup为唤醒队列函数</span></span><br><span class="line">	<span class="keyword">if</span> (slowpath(dispatch_atomic_dec2o(dq, dq_running) == <span class="number">0</span>)) &#123;</span><br><span class="line">		_dispatch_wakeup(dq);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="GCD死锁"><a href="#GCD死锁" class="headerlink" title="GCD死锁"></a>GCD死锁</h3><p>看了上面的代码注释后，我们来想一下死锁是怎么产生的？先看下示例代码：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#import <span class="meta-string">"DeadLock.h"</span></span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">@implementation</span> <span class="title">DeadLock</span></span></span><br><span class="line"></span><br><span class="line">- (<span class="keyword">instancetype</span>)init &#123;</span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">self</span> = [<span class="keyword">super</span> init]) &#123;</span><br><span class="line"><span class="comment">//        [self _mianQueueDeadLock];</span></span><br><span class="line">        [<span class="keyword">self</span> _serialQueueDeadLock];</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">self</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">pragma</span> mark - Private</span></span><br><span class="line"></span><br><span class="line">- (<span class="keyword">void</span>)_mianQueueDeadLock &#123;</span><br><span class="line">    <span class="built_in">dispatch_sync</span>(dispatch_get_main_queue(), ^(<span class="keyword">void</span>)&#123;</span><br><span class="line">        <span class="built_in">NSLog</span>(<span class="string">@"这里死锁了"</span>);</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (<span class="keyword">void</span>)_serialQueueDeadLock &#123;</span><br><span class="line">    <span class="built_in">dispatch_queue_t</span> queue1 = dispatch_queue_create(<span class="string">"1serialQueue"</span>, DISPATCH_QUEUE_SERIAL);</span><br><span class="line">    <span class="built_in">dispatch_queue_t</span> queue2 = dispatch_queue_create(<span class="string">"2serialQueue"</span>, DISPATCH_QUEUE_SERIAL);</span><br><span class="line">    </span><br><span class="line">    <span class="built_in">dispatch_sync</span>(queue1, ^&#123;</span><br><span class="line">        <span class="built_in">NSLog</span>(<span class="string">@"11111"</span>);</span><br><span class="line">        </span><br><span class="line">        <span class="built_in">dispatch_sync</span>(queue1, ^&#123; </span><br><span class="line">            <span class="comment">// 如果使用queue2就不会发生死锁，使用queue1就会死锁</span></span><br><span class="line">            <span class="built_in">NSLog</span>(<span class="string">@"22222"</span>);</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">@end</span></span><br></pre></td></tr></table></figure>
+<p>以<code>_serialQueueDeadLock</code>为例：当第一次执行串行队列任务的时候，跳到第4步，直接开始执行任务，在运行第二个<code>dispatch_sync</code>时候，在任务里面通过执行第1步（队列在运行）向这个同步队列中压入信号量，然后等待信号量，进入死锁。<br>以<code>_mianQueueDeadLock</code>为例：主队列则会跳转到第2步进入死锁。</p>
+<h3 id="dispatch-sync-f-invoke"><a href="#dispatch-sync-f-invoke" class="headerlink" title="_dispatch_sync_f_invoke"></a>_dispatch_sync_f_invoke</h3><p>如果当前队列是全局队列的话，就会调用<code>_dispatch_sync_f_invoke</code>函数。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="keyword">void</span></span><br><span class="line">_dispatch_sync_f_invoke(<span class="keyword">dispatch_queue_t</span> dq, <span class="keyword">void</span> *ctxt, <span class="keyword">dispatch_function_t</span> func) &#123;</span><br><span class="line">	<span class="comment">// 执行任务</span></span><br><span class="line">	_dispatch_function_invoke(dq, ctxt, func);</span><br><span class="line">	<span class="comment">// dq-&gt;dq_running减2后判断是否等于0，是就唤醒队列</span></span><br><span class="line">	<span class="keyword">if</span> (slowpath(dispatch_atomic_sub2o(dq, dq_running, <span class="number">2</span>) == <span class="number">0</span>)) &#123;</span><br><span class="line">		_dispatch_wakeup(dq);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这个函数的作用：通过<code>_dispatch_function_invoke</code>函数执行传入的任务，然后根据<code>dq_running</code>检测任务队列有没有激活，没有激活就执行激活函数。关于激活函数<code>_dispatch_wakeup(dq)</code>放在队列的异步中讲解。</p>
+<h3 id="重点函数：-dispatch-sync-f2"><a href="#重点函数：-dispatch-sync-f2" class="headerlink" title="重点函数：_dispatch_sync_f2"></a>重点函数：_dispatch_sync_f2</h3><p>根据前面讲到的，如果是其他队列，执行<code>_dispatch_sync_f2</code>。这个其他队列我们可以认为就是自定义的并行队列。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">_dispatch_sync_f2(<span class="keyword">dispatch_queue_t</span> dq, <span class="keyword">void</span> *ctxt, <span class="keyword">dispatch_function_t</span> func) &#123;</span><br><span class="line">	<span class="comment">// 1) ensure that this thread hasn't enqueued anything ahead of this call</span></span><br><span class="line">	<span class="comment">// 2) the queue is not suspended</span></span><br><span class="line">	</span><br><span class="line">	<span class="comment">// 第1步：队列中有其他任务或者队列被挂起，压入信号量开始等待</span></span><br><span class="line">	<span class="keyword">if</span> (slowpath(dq-&gt;dq_items_tail) || slowpath(DISPATCH_OBJECT_SUSPENDED(dq)))&#123;</span><br><span class="line">		<span class="keyword">return</span> _dispatch_sync_f_slow(dq, ctxt, func);</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// 第2步：队列没有激活，激活队列后执行任务，最终还是调用了_dispatch_sync_f_slow函数，只是多了一个_dispatch_wakeup函数</span></span><br><span class="line">	<span class="keyword">if</span> (slowpath(dispatch_atomic_add2o(dq, dq_running, <span class="number">2</span>) &amp; <span class="number">1</span>)) &#123;</span><br><span class="line">		<span class="keyword">return</span> _dispatch_sync_f_slow2(dq, ctxt, func);</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// 第3步：队列有多重队列，寻找真正的目标队列</span></span><br><span class="line">	<span class="keyword">if</span> (slowpath(dq-&gt;do_targetq-&gt;do_targetq)) &#123;</span><br><span class="line">		<span class="keyword">return</span> _dispatch_sync_f_recurse(dq, ctxt, func);</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// 第4步：队列无任务执行，调用_dispatch_sync_f_invoke执行任务。</span></span><br><span class="line">	<span class="comment">// 内部调用_dispatch_function_invoke去执行任务</span></span><br><span class="line">	_dispatch_sync_f_invoke(dq, ctxt, func);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这里涉及到三个函数：</p>
+<ol>
+<li><code>_dispatch_sync_f_slow</code>函数内部使用了线程对应的信号量并且调用wait方法。</li>
+<li><code>_dispatch_sync_f_recurse</code>函数内部调用了<code>dispatch_sync_f</code>函数，还是在寻找真正的目标队列。</li>
+<li>如果队列无任务执行，调用<code>_dispatch_sync_f_invoke</code>执行任务。执行任务的时候会调用<code>_dispatch_function_invoke</code>函数。</li>
+</ol>
+<p>通过上面的代码，队列的同步执行是顺序执行的。这种顺序执行跟操作队列是串行还是并发是没有关系的。这些操作按着FIFO的方式进入队列中，每一个操作都会被等待执行直到前一个操作完成8，造成了这种顺序执行的现象。</p>
+<p>现在我们整理一下队列同步执行的流程，如下图：</p>
+<p><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/gcd_queue_synchronization.png" alt="gcd_queue_synchronization"></p>
+<h2 id="队列的异步：dispatch-async分析"><a href="#队列的异步：dispatch-async分析" class="headerlink" title="队列的异步：dispatch_async分析"></a>队列的异步：dispatch_async分析</h2><p>测试代码</p>
+<p><strong>串行队列测试</strong><br><figure class="highlight swift"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">let</span> sQueue = <span class="type">DispatchQueue</span>(label: <span class="string">"sQueue"</span>)</span><br><span class="line"><span class="built_in">print</span>(<span class="number">1</span>)</span><br><span class="line">sQueue.async &#123; <span class="built_in">print</span>(<span class="string">"\(2)：\(Thread.current)"</span>) &#125;</span><br><span class="line"><span class="built_in">print</span>(<span class="number">3</span>)</span><br><span class="line">sQueue.async &#123; <span class="built_in">print</span>(<span class="string">"\(4)：\(Thread.current)"</span>) &#125;</span><br><span class="line"><span class="built_in">print</span>(<span class="number">5</span>)</span><br></pre></td></tr></table></figure></p>
+<p>执行结果<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">1</span><br><span class="line">3</span><br><span class="line">5</span><br><span class="line">2：&lt;NSThread: 0x600000b884c0&gt;&#123;number = 4, name = (null)&#125;</span><br><span class="line">4：&lt;NSThread: 0x600000b884c0&gt;&#123;number = 4, name = (null)&#125;</span><br></pre></td></tr></table></figure></p>
+<p><strong>并发队列测试</strong></p>
+<figure class="highlight swift"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">let</span> cQueue = <span class="type">DispatchQueue</span>(label: <span class="string">"cQueue"</span>, attributes: [.concurrent])</span><br><span class="line"><span class="built_in">print</span>(<span class="number">1</span>)</span><br><span class="line">cQueue.async &#123; <span class="built_in">print</span>(<span class="string">"\(2)：\(Thread.current)"</span>) &#125;</span><br><span class="line"><span class="built_in">print</span>(<span class="number">3</span>)</span><br><span class="line">cQueue.async &#123; <span class="built_in">print</span>(<span class="string">"\(4)：\(Thread.current)"</span>) &#125;</span><br><span class="line"><span class="built_in">print</span>(<span class="number">5</span>)</span><br></pre></td></tr></table></figure>
+<p>执行结果</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">1</span><br><span class="line">3</span><br><span class="line">5</span><br><span class="line">4：&lt;NSThread: 0x600002bc69c0&gt;&#123;number = 6, name = (null)&#125;</span><br><span class="line">2：&lt;NSThread: 0x600002bc84c0&gt;&#123;number = 5, name = (null)&#125;</span><br></pre></td></tr></table></figure>
+<p>通过上面的测试代码我们可以知道：</p>
+<ol>
+<li>队列异步执行任务的过程中，具备开辟新线程的能力。</li>
+<li>非主队列的串行队列，会开辟一个新的线程，不会阻塞当前线程，所有任务有序执行。</li>
+<li>并发队列会开辟多个线程，具体线程的个数有体统决定。所有任务是无序执行的。</li>
+</ol>
+<h3 id="入口函数：dispatch-async"><a href="#入口函数：dispatch-async" class="headerlink" title="入口函数：dispatch_async"></a>入口函数：dispatch_async</h3><p><code>dispatch_async</code>的源码如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">dispatch_async</span><span class="params">(<span class="keyword">dispatch_queue_t</span> dq, <span class="keyword">void</span> (^work)(<span class="keyword">void</span>))</span> </span>&#123;</span><br><span class="line">	dispatch_async_f(dq, _dispatch_Block_copy(work), _dispatch_call_block_and_release);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>dispatch_async</code>主要将block从栈copy到堆上，或者增加引用计数，保证block在执行之前不会被销毁，另外<code>_dispatch_call_block_and_release</code>用于销毁block。然后调用<code>dispatch_async_f</code>。</p>
+<p><code>dispatch_async_f</code>函数的实现：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span></span><br><span class="line">dispatch_async_f(<span class="keyword">dispatch_queue_t</span> dq, <span class="keyword">void</span> *ctxt, <span class="keyword">dispatch_function_t</span> func) &#123;</span><br><span class="line">	<span class="keyword">dispatch_continuation_t</span> dc;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// No fastpath/slowpath hint because we simply don't know</span></span><br><span class="line">	<span class="comment">// 串行队列，执行dispatch_barrier_async_f，其实最后还是执行任务入队的操作</span></span><br><span class="line">	<span class="keyword">if</span> (dq-&gt;dq_width == <span class="number">1</span>) &#123;</span><br><span class="line">		<span class="keyword">return</span> dispatch_barrier_async_f(dq, ctxt, func);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 从线程私有数据中获取一个dispatch_continuation_t的结构体</span></span><br><span class="line">	dc = fastpath(_dispatch_continuation_alloc_cacheonly());</span><br><span class="line">	<span class="keyword">if</span> (!dc) &#123;</span><br><span class="line">		<span class="keyword">return</span> _dispatch_async_f_slow(dq, ctxt, func);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	dc-&gt;do_vtable = (<span class="keyword">void</span> *)DISPATCH_OBJ_ASYNC_BIT;</span><br><span class="line">	dc-&gt;dc_func = func;</span><br><span class="line">	dc-&gt;dc_ctxt = ctxt;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// No fastpath/slowpath hint because we simply don't know</span></span><br><span class="line">	<span class="comment">// 有目标队列，调用_dispatch_async_f2函数进行转发。</span></span><br><span class="line">	<span class="keyword">if</span> (dq-&gt;do_targetq) &#123;</span><br><span class="line">		<span class="keyword">return</span> _dispatch_async_f2(dq, dc);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 全局队列直接进行入队操作</span></span><br><span class="line">	_dispatch_queue_push(dq, dc);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>从上面的源代码中我们可以看出<code>dispatch_async_f</code>大致分为三种情况：</p>
+<ol>
+<li>如果是串行队列，调用<code>dispatch_barrier_async_f</code>函数；</li>
+<li>其他队列且有目标队列，调用<code>_dispatch_async_f2</code>函数；</li>
+<li>如果是全局队列的话，直接调用<code>_dispatch_queue_push</code>函数进行入队操作。</li>
+</ol>
+<p>由于队列的异步执行任务的过程比较复杂，我们用一张图描述一下<code>dispatch_async_f</code>这个函数执行过程：</p>
+<p><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/dispatch_async_f%E6%B5%81%E7%A8%8B%E5%9B%BE.png" alt="dispatch_async_f函数"></p>
+<p>虽然上面分三种情况，它们最后执行都是<code>_dispatch_queue_push</code>或<code>_dispatch_async_f2</code>函数。另外<code>_dispatch_async_f2</code>函数其实也是在进行入队的操作。所以<code>dispatch_async_f</code>的本质就是执行<code>_dispatch_queue_push</code>函数来任务入队。</p>
+<h3 id="dispatch-continuation-t结构体"><a href="#dispatch-continuation-t结构体" class="headerlink" title="dispatch_continuation_t结构体"></a>dispatch_continuation_t结构体</h3><p>在看上述过程的源码时会涉及到<code>dispatch_continuation_t</code>这样的结构体，这个结构体的作用就是封装我们传入的异步block的任务。以<code>dispatch_barrier_async_f</code>函数的实现为例子：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">dispatch_barrier_async_f</span><span class="params">(<span class="keyword">dispatch_queue_t</span> dq, <span class="keyword">void</span> *ctxt, <span class="keyword">dispatch_function_t</span> func)</span> </span>&#123;</span><br><span class="line">	<span class="keyword">dispatch_continuation_t</span> dc;</span><br><span class="line">	<span class="comment">// 从线程私有数据中获取一个dispatch_continuation_t的结构体。</span></span><br><span class="line">	dc = fastpath(_dispatch_continuation_alloc_cacheonly());</span><br><span class="line">	<span class="keyword">if</span> (!dc) &#123;</span><br><span class="line">		<span class="comment">// _dispatch_barrier_async_f_slow内部也是在进行入队操作</span></span><br><span class="line">		<span class="keyword">return</span> _dispatch_barrier_async_f_slow(dq, ctxt, func);</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// DISPATCH_OBJ_BARRIER_BIT，用于阻塞标识</span></span><br><span class="line">	dc-&gt;do_vtable = (<span class="keyword">void</span> *)(DISPATCH_OBJ_ASYNC_BIT | DISPATCH_OBJ_BARRIER_BIT);</span><br><span class="line">	<span class="comment">// 将_dispatch_call_block_and_release作为func方法</span></span><br><span class="line">	dc-&gt;dc_func = func;</span><br><span class="line">	<span class="comment">// 将传入的block作为上下文</span></span><br><span class="line">	dc-&gt;dc_ctxt = ctxt;</span><br><span class="line">	<span class="comment">// 入队操作</span></span><br><span class="line">	_dispatch_queue_push(dq, dc);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>另外还需要注意下<code>dispatch_continuation_t</code>中<code>do_vtable</code>的赋值情况。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 串行队列异步或者使用dispatch_barrier_async函数会有一个DISPATCH_OBJ_BARRIER_BIT的barrier标记</span></span><br><span class="line">dc-&gt;do_vtable = (<span class="keyword">void</span> *)(DISPATCH_OBJ_ASYNC_BIT | DISPATCH_OBJ_BARRIER_BIT);</span><br><span class="line"></span><br><span class="line"><span class="comment">// not barrier</span></span><br><span class="line">dc-&gt;do_vtable = (<span class="keyword">void</span> *)DISPATCH_OBJ_ASYNC_BIT;</span><br></pre></td></tr></table></figure>
+<p>在<code>libdispatch</code>全部标识符有四种：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> DISPATCH_OBJ_ASYNC_BIT		0x1		<span class="comment">//异步</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> DISPATCH_OBJ_BARRIER_BIT	0x2		<span class="comment">//阻塞</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> DISPATCH_OBJ_GROUP_BIT		0x4		<span class="comment">//组</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> DISPATCH_OBJ_SYNC_SLOW_BIT	0x8		<span class="comment">//同步慢</span></span></span><br></pre></td></tr></table></figure>
+<p>从上面我们可以知道串行队列异步执行任务的时候，通过<code>DISPATCH_OBJ_BARRIER_BIT</code>这个标识符实现阻塞等待的。</p>
+<h3 id="任务入队：-dispatch-queue-push"><a href="#任务入队：-dispatch-queue-push" class="headerlink" title="任务入队：_dispatch_queue_push"></a>任务入队：_dispatch_queue_push</h3><p><code>_dispatch_queue_push</code>是一个宏定义，它最后会变成执行<code>_dispatch_queue_push_list</code>函数。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> _dispatch_queue_push(x, y) _dispatch_queue_push_list((x), (y), (y))</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> _dispatch_queue_push_list _dispatch_trace_queue_push_list</span></span><br></pre></td></tr></table></figure>
+<h4 id="dispatch-trace-queue-push-list"><a href="#dispatch-trace-queue-push-list" class="headerlink" title="_dispatch_trace_queue_push_list"></a>_dispatch_trace_queue_push_list</h4><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span> _dispatch_trace_queue_push_list(<span class="keyword">dispatch_queue_t</span> dq, <span class="keyword">dispatch_object_t</span> _head, <span class="keyword">dispatch_object_t</span> _tail) &#123;</span><br><span class="line">	<span class="comment">// 是否可以入队</span></span><br><span class="line">	<span class="keyword">if</span> (slowpath(DISPATCH_QUEUE_PUSH_ENABLED())) &#123;</span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">dispatch_object_s</span> *<span class="title">dou</span> = _<span class="title">head</span>._<span class="title">do</span>;</span></span><br><span class="line">		<span class="keyword">do</span> &#123;</span><br><span class="line">			<span class="comment">// 主要是对dispatch_continuation_s结构体的处理，确保后面的使用。</span></span><br><span class="line">			_dispatch_trace_continuation(dq, dou, DISPATCH_QUEUE_PUSH);</span><br><span class="line">		&#125; <span class="keyword">while</span> (dou != _tail._do &amp;&amp; (dou = dou-&gt;do_next));</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	_dispatch_queue_push_list(dq, _head, _tail);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="dispatch-queue-push-list"><a href="#dispatch-queue-push-list" class="headerlink" title="_dispatch_queue_push_list"></a>_dispatch_queue_push_list</h4><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span> _dispatch_queue_push_list(<span class="keyword">dispatch_queue_t</span> dq, <span class="keyword">dispatch_object_t</span> _head, <span class="keyword">dispatch_object_t</span> _tail) &#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">dispatch_object_s</span> *<span class="title">prev</span>, *<span class="title">head</span> = _<span class="title">head</span>._<span class="title">do</span>, *<span class="title">tail</span> = _<span class="title">tail</span>._<span class="title">do</span>;</span></span><br><span class="line"></span><br><span class="line">	tail-&gt;do_next = <span class="literal">NULL</span>;</span><br><span class="line">	dispatch_atomic_store_barrier();</span><br><span class="line">	<span class="comment">// dispatch_atomic_xchg2o实质是调用((typeof(*(p)))__sync_swap((p), (n)))，它的定义是将p设为n并返回p操作之前的值。</span></span><br><span class="line">	<span class="comment">// dispatch_atomic_xchg2o(dq, dq_items_tail, tail)相当于dq-&gt;dq_items_tail = tail，重新设置了队列的尾指针</span></span><br><span class="line">	prev = fastpath(dispatch_atomic_xchg2o(dq, dq_items_tail, tail));</span><br><span class="line">	<span class="keyword">if</span> (prev) &#123;</span><br><span class="line">		<span class="comment">// if we crash here with a value less than 0x1000, then we are at a</span></span><br><span class="line">		<span class="comment">// known bug in client code for example, see _dispatch_queue_dispose</span></span><br><span class="line">		<span class="comment">// or _dispatch_atfork_child</span></span><br><span class="line">		<span class="comment">// prev是原先的队尾，如果队列中有其他的元素，就将压入的对象加在队列的尾部。</span></span><br><span class="line">		prev-&gt;do_next = head;</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		<span class="comment">// 如果队列为空</span></span><br><span class="line">		_dispatch_queue_push_list_slow(dq, head);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="dispatch-queue-push-list-slow"><a href="#dispatch-queue-push-list-slow" class="headerlink" title="_dispatch_queue_push_list_slow"></a>_dispatch_queue_push_list_slow</h4><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">_dispatch_queue_push_list_slow(<span class="keyword">dispatch_queue_t</span> dq,</span><br><span class="line">		struct dispatch_object_s *obj)</span><br><span class="line">&#123;</span><br><span class="line">	<span class="comment">//dq-&gt;dq_items_head设置为dc，然后唤醒这个队列。因为此时队列为空，没有任务在执行，处于休眠状态，所以需要唤醒</span></span><br><span class="line">	_dispatch_retain(dq);</span><br><span class="line">	dq-&gt;dq_items_head = obj;</span><br><span class="line">	_dispatch_wakeup(dq);</span><br><span class="line">	_dispatch_release(dq);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>通过对异步任务入队的分析，我们可以知道，入队只是将任务一个一个以FIFO的顺序添加到队列中，那就是需要一个时间点去执行这些任务。</p>
+<h3 id="唤醒队列：-dispatch-wakeup"><a href="#唤醒队列：-dispatch-wakeup" class="headerlink" title="唤醒队列：_dispatch_wakeup"></a>唤醒队列：_dispatch_wakeup</h3><p>无论是同步还是异步中都调用了<code>_dispatch_wakeup</code>这个函数，这个函数的作用就是唤醒当前队列。</p>
+<p><code>_dispatch_wakeup</code>的源码：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">dispatch_queue_t</span> _dispatch_wakeup(<span class="keyword">dispatch_object_t</span> dou) &#123;</span><br><span class="line">	<span class="keyword">dispatch_queue_t</span> tq;</span><br><span class="line">	<span class="keyword">if</span> (slowpath(DISPATCH_OBJECT_SUSPENDED(dou._do))) &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!dx_probe(dou._do) &amp;&amp; !dou._dq-&gt;dq_items_tail) &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 如果dou._do-&gt;do_suspend_cnt == 0，返回YES,否则返回NO；</span></span><br><span class="line">	<span class="comment">// 同时将DISPATCH_OBJECT_SUSPEND_LOCK赋值给dou._do-&gt;do_suspend_cnt</span></span><br><span class="line">	<span class="keyword">if</span> (!dispatch_atomic_cmpxchg2o(dou._do, do_suspend_cnt, <span class="number">0</span>, DISPATCH_OBJECT_SUSPEND_LOCK)) &#123;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">if</span> DISPATCH_COCOA_COMPAT</span></span><br><span class="line">		<span class="comment">// 主队列的任务调用_dispatch_queue_wakeup_main唤醒主队列</span></span><br><span class="line">		<span class="keyword">if</span> (dou._dq == &amp;_dispatch_main_q) &#123;</span><br><span class="line">			_dispatch_queue_wakeup_main();</span><br><span class="line">		&#125;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">		<span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// 放到目标队列中，重新走_dispatch_queue_push方法</span></span><br><span class="line">	_dispatch_retain(dou._do);</span><br><span class="line">	tq = dou._do-&gt;do_targetq;</span><br><span class="line">	_dispatch_queue_push(tq, dou._do);</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">return</span> tq;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上面的代码中我们只看到了主队列和其他自定义队列的操作情况，但是没有全局队列的操作的情况，关于全局队列的唤醒的比较隐晦，针对全局队列的<code>dx_probe(dou._do)</code>的调用如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> dx_probe(x) (x)-&gt;do_vtable-&gt;do_probe(x)</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// dx_probe(dou._do) 相当于 (dou.do)-&gt;do_vtable-&gt;do_probe(dou.do)</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 全局队列的do_vtable：_dispatch_queue_root_vtable</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// _dispatch_queue_root_vtable的定义</span></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">dispatch_queue_vtable_s</span> _<span class="title">dispatch_queue_root_vtable</span> = &#123;</span></span><br><span class="line">	.do_type = DISPATCH_QUEUE_GLOBAL_TYPE,</span><br><span class="line">	.do_kind = <span class="string">"global-queue"</span>,</span><br><span class="line">	.do_debug = dispatch_queue_debug,</span><br><span class="line">	.do_probe = _dispatch_queue_wakeup_global,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 全局队列：</span></span><br><span class="line"><span class="comment">// globalQueue -&gt; _dispatch_queue_root_vtable -&gt; _dispatch_queue_wakeup_global</span></span><br></pre></td></tr></table></figure>
+<p>从上面的代码可以看出<code>_dispatch_wakeup</code>分为四种情况：</p>
+<ol>
+<li>主队列调用<code>_dispatch_queue_wakeup_main</code>；</li>
+<li>全局队列调用<code>_dispatch_queue_wakeup_global</code>；</li>
+<li>其他队列向目标队列压入这个队列，继续做入队操作；</li>
+<li>管理队列调用<code>_dispatch_mgr_wakeup</code>，这里主要是为了dispatch_source而服务的。</li>
+</ol>
+<h4 id="dispatch-queue-wakeup-main"><a href="#dispatch-queue-wakeup-main" class="headerlink" title="_dispatch_queue_wakeup_main"></a>_dispatch_queue_wakeup_main</h4><p><code>_dispatch_main_queue_wakeup</code>函数来唤醒主线程的Runloop，之前在<a href="https://www.neroxie.com/2019/04/24/%E9%87%8D%E6%8B%BERunLoop%E5%8E%9F%E7%90%86/">《重拾RunLoop原理》</a>中提到：</p>
+<blockquote>
+<p>使用GCD异步操作的时候，我们在一个子线程处理完一些事情后，要返回主线程处理事情的时候，这时候需要依赖于RunLoop。</p>
+</blockquote>
+<p>之前是控制台打印验证，现在我们在源码中亲自验证：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span> _dispatch_queue_wakeup_main(<span class="keyword">void</span>) &#123;</span><br><span class="line">	<span class="keyword">kern_return_t</span> kr;</span><br><span class="line">	<span class="comment">// 主要看_dispatch_main_q_port_init的实现</span></span><br><span class="line">	dispatch_once_f(&amp;_dispatch_main_q_port_pred, <span class="literal">NULL</span>,</span><br><span class="line">			_dispatch_main_q_port_init);</span><br><span class="line">	<span class="comment">// 关于主线程的唤醒主要靠mach_port和在runloop中注册相对应的source1</span></span><br><span class="line">	kr = _dispatch_send_wakeup_main_thread(main_q_port, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">switch</span> (kr) &#123;</span><br><span class="line">	<span class="keyword">case</span> MACH_SEND_TIMEOUT:</span><br><span class="line">	<span class="keyword">case</span> MACH_SEND_TIMED_OUT:</span><br><span class="line">	<span class="keyword">case</span> MACH_SEND_INVALID_DEST:</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line">	<span class="keyword">default</span>:</span><br><span class="line">		(<span class="keyword">void</span>)dispatch_assume_zero(kr);</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	_dispatch_safe_fork = <span class="literal">false</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// _dispatch_main_q_port_init的实现，RunLoop的唤醒需要依赖于mach port</span></span><br><span class="line"><span class="keyword">void</span> _dispatch_main_q_port_init(<span class="keyword">void</span> *ctxt DISPATCH_UNUSED) &#123;</span><br><span class="line">	<span class="keyword">kern_return_t</span> kr;</span><br><span class="line"></span><br><span class="line">	kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE,</span><br><span class="line">			&amp;main_q_port);</span><br><span class="line">	DISPATCH_VERIFY_MIG(kr);</span><br><span class="line">	(<span class="keyword">void</span>)dispatch_assume_zero(kr);</span><br><span class="line">	kr = mach_port_insert_right(mach_task_self(), main_q_port, main_q_port,</span><br><span class="line">			MACH_MSG_TYPE_MAKE_SEND);</span><br><span class="line">	DISPATCH_VERIFY_MIG(kr);</span><br><span class="line">	(<span class="keyword">void</span>)dispatch_assume_zero(kr);</span><br><span class="line"></span><br><span class="line">	_dispatch_program_is_probably_callback_driven = <span class="literal">true</span>;</span><br><span class="line">	_dispatch_safe_fork = <span class="literal">false</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="dispatch-queue-wakeup-global"><a href="#dispatch-queue-wakeup-global" class="headerlink" title="_dispatch_queue_wakeup_global"></a>_dispatch_queue_wakeup_global</h4><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="keyword">bool</span></span><br><span class="line">_dispatch_queue_wakeup_global(<span class="keyword">dispatch_queue_t</span> dq) &#123;</span><br><span class="line">	<span class="keyword">static</span> <span class="keyword">dispatch_once_t</span> pred;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">dispatch_root_queue_context_s</span> *<span class="title">qc</span> = <span class="title">dq</span>-&gt;<span class="title">do_ctxt</span>;</span></span><br><span class="line">	<span class="keyword">int</span> r;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!dq-&gt;dq_items_tail) <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">	_dispatch_safe_fork = <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">	dispatch_debug_queue(dq, __PRETTY_FUNCTION__);</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// 上下文以及根队列的初始化，根队列内部会初始化线程池</span></span><br><span class="line">	dispatch_once_f(&amp;pred, <span class="literal">NULL</span>, _dispatch_root_queues_init);</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// _dispatch_queue_wakeup_global支持两种实现的任务唤醒pthread_workqueue和thread pool</span></span><br><span class="line">	<span class="comment">//  1.支持pthread_workqueue</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">if</span> HAVE_PTHREAD_WORKQUEUES</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">if</span> DISPATCH_ENABLE_THREAD_POOL</span></span><br><span class="line">	<span class="comment">// 如果队列的dgq_kworkqueue存在，则调用pthread_workqueue_additem_np函数</span></span><br><span class="line">	<span class="comment">// dgq_kworkqueue是一个用于创建内核线程的接口，通过它创建的内核线程来执行内核其他模块排列到队列里的工作。</span></span><br><span class="line">	<span class="comment">// 不同优先级的dispatch queue对应着对应优先级的workqueue。</span></span><br><span class="line">	<span class="comment">// _dispatch_root_queues_init初始化的时候，使用pthread_workqueue_create_np创建pthread_workqueue</span></span><br><span class="line">	<span class="keyword">if</span> (qc-&gt;dgq_kworkqueue)</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">if</span> (dispatch_atomic_cmpxchg2o(qc, dgq_pending, <span class="number">0</span>, <span class="number">1</span>)) &#123;</span><br><span class="line">			<span class="keyword">pthread_workitem_handle_t</span> wh;</span><br><span class="line">			<span class="keyword">unsigned</span> <span class="keyword">int</span> gen_cnt;</span><br><span class="line">			_dispatch_debug(<span class="string">"requesting new worker thread"</span>);</span><br><span class="line">			<span class="comment">// 该函数使用workq_kernreturn系统调用，通知workqueue增加应当执行的项目。</span></span><br><span class="line">			<span class="comment">// 根据该通知，XNU内核基于系统状态判断是否要生成线程，如果是overcommit优先级的队列，workqueue则始终生成线程。</span></span><br><span class="line">			r = pthread_workqueue_additem_np(qc-&gt;dgq_kworkqueue, _dispatch_worker_thread2, dq, &amp;wh, &amp;gen_cnt);</span><br><span class="line">			(<span class="keyword">void</span>)dispatch_assume_zero(r);</span><br><span class="line">		&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">			_dispatch_debug(<span class="string">"work thread request still pending on global "</span></span><br><span class="line">					<span class="string">"queue: %p"</span>, dq);</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">goto</span> out;</span><br><span class="line">	&#125;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span> <span class="comment">// HAVE_PTHREAD_WORKQUEUES</span></span></span><br><span class="line">	<span class="comment">// 2. 支持thread pool</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">if</span> DISPATCH_ENABLE_THREAD_POOL</span></span><br><span class="line">	<span class="comment">// 通过发送一个信号量使线程保活</span></span><br><span class="line">	<span class="keyword">if</span> (dispatch_semaphore_signal(qc-&gt;dgq_thread_mediator)) &#123;</span><br><span class="line">		<span class="keyword">goto</span> out;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 计算线程池可用长度，如果线程池已满则跳转到out即return false，否则执行线程池-1操作</span></span><br><span class="line">	<span class="keyword">pthread_t</span> pthr;</span><br><span class="line">	<span class="keyword">int</span> t_count;</span><br><span class="line">	<span class="keyword">do</span> &#123;</span><br><span class="line">		t_count = qc-&gt;dgq_thread_pool_size;</span><br><span class="line">		<span class="keyword">if</span> (!t_count) &#123;</span><br><span class="line">			_dispatch_debug(<span class="string">"The thread pool is full: %p"</span>, dq);</span><br><span class="line">			<span class="keyword">goto</span> out;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125; <span class="keyword">while</span> (!dispatch_atomic_cmpxchg2o(qc, dgq_thread_pool_size, t_count, t_count - <span class="number">1</span>));</span><br><span class="line">	<span class="comment">// qc-&gt;dgq_thread_pool_size的值与t_counts是否相等，是就减1，并返回ture</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">// 这里说明线程池不够用了，使用pthread创建一个线程，</span></span><br><span class="line">	<span class="comment">// 并执行_dispatch_worker_thread,_dispatch_worker_thread最终会调用到_dispatch_worker_thread2</span></span><br><span class="line">	<span class="keyword">while</span> ((r = pthread_create(&amp;pthr, <span class="literal">NULL</span>, _dispatch_worker_thread, dq))) &#123;</span><br><span class="line">		<span class="keyword">if</span> (r != EAGAIN) &#123;</span><br><span class="line">			(<span class="keyword">void</span>)dispatch_assume_zero(r);</span><br><span class="line">		&#125;</span><br><span class="line">		sleep(<span class="number">1</span>);</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// 保证pthr能够被回收</span></span><br><span class="line">	r = pthread_detach(pthr);</span><br><span class="line">	(<span class="keyword">void</span>)dispatch_assume_zero(r);</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span> <span class="comment">// DISPATCH_ENABLE_THREAD_POOL</span></span></span><br><span class="line"></span><br><span class="line">out:</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="队列的任务调度"><a href="#队列的任务调度" class="headerlink" title="队列的任务调度"></a>队列的任务调度</h3><h4 id="主队列的任务调度：-dispatch-main-queue-callback-4CF"><a href="#主队列的任务调度：-dispatch-main-queue-callback-4CF" class="headerlink" title="主队列的任务调度：_dispatch_main_queue_callback_4CF"></a>主队列的任务调度：_dispatch_main_queue_callback_4CF</h4><p>通过上面的源码分析，我们知道主队列在唤醒过程中会调用<code>_dispatch_send_wakeup_main_thread</code>函数，但是该函数的实现并没有开源这个函数的相关实现，似乎我们无法看出主队列的任务调度。通过打印函数调用栈我们可以看到主队列的任务调度是依赖<code>_dispatch_main_queue_callback_4CF</code>这个函数。</p>
+<p><code>__CFRUNLOOP_IS_SERVICING_THE_MAIN_DISPATCH_QUEUE__</code>之后调用<code>_dispatch_main_queue_callback_4CF</code>这个函数。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 处理主队列任务</span></span><br><span class="line"><span class="keyword">void</span> _dispatch_main_queue_callback_4CF(<span class="keyword">mach_msg_header_t</span> *msg DISPATCH_UNUSED) &#123;</span><br><span class="line">	<span class="keyword">if</span> (main_q_is_draining) &#123;</span><br><span class="line">		<span class="keyword">return</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// 正在处理任务，设置状态为true</span></span><br><span class="line">	_dispatch_queue_set_mainq_drain_state(<span class="literal">true</span>);</span><br><span class="line">	<span class="comment">// 调度处理任务</span></span><br><span class="line">	_dispatch_main_queue_drain();</span><br><span class="line">	<span class="comment">// 处理任务完成任务，恢复状态为false</span></span><br><span class="line">	_dispatch_queue_set_mainq_drain_state(<span class="literal">false</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>主队列是一个串行队列，按顺序执行，因此没有并发的逻辑。主队列的任务调度就是顺序遍历，主队列唤起本次需要执行的dc，并进行任务执行，对于之后入队的任务，将放在下一轮的主队列唤醒中执行。这也是<code>_dispatch_main_queue_drain</code>函数的大致实现。</p>
+<h4 id="全局队列的任务调度：-dispatch-worker-thread2"><a href="#全局队列的任务调度：-dispatch-worker-thread2" class="headerlink" title="全局队列的任务调度：_dispatch_worker_thread2"></a>全局队列的任务调度：_dispatch_worker_thread2</h4><p>全局队列通过<code>_dispatch_queue_wakeup_global</code>函数，将任务入队。然后调用 <code>_dispatch_worker_thread2</code>函数处理对应queue中的任务。</p>
+<p>在<code>_dispatch_worker_thread2</code>的实现中有两个函数比较重要</p>
+<ol>
+<li><code>_dispatch_queue_concurrent_drain_one</code>函数；</li>
+<li><code>_dispatch_continuation_pop</code>函数；</li>
+</ol>
+<h5 id="dispatch-queue-concurrent-drain-one"><a href="#dispatch-queue-concurrent-drain-one" class="headerlink" title="_dispatch_queue_concurrent_drain_one"></a>_dispatch_queue_concurrent_drain_one</h5><p><code>_dispatch_queue_concurrent_drain_one</code>函数主要处理了以下几件事情：</p>
+<ul>
+<li>多线程竞争下的边界处理；</li>
+<li>获取出队dc</li>
+<li>再次唤醒全局队列</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">dispatch_object_s</span> *</span></span><br><span class="line"><span class="class">_<span class="title">dispatch_queue_concurrent_drain_one</span>(<span class="title">dispatch_queue_t</span> <span class="title">dq</span>) &#123;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">dispatch_object_s</span> *<span class="title">head</span>, *<span class="title">next</span>, *<span class="title">const</span> <span class="title">mediator</span> = (<span class="title">void</span> *)~0<span class="title">ul</span>;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">// The mediator value acts both as a "lock" and a signal</span></span><br><span class="line">	head = dispatch_atomic_xchg2o(dq, dq_items_head, mediator);</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 1. 检查队列是否为空，是返回NULL</span></span><br><span class="line">	<span class="keyword">if</span> (slowpath(head == <span class="literal">NULL</span>)) &#123;</span><br><span class="line">		(<span class="keyword">void</span>)dispatch_atomic_cmpxchg2o(dq, dq_items_head, mediator, <span class="literal">NULL</span>);</span><br><span class="line">		_dispatch_debug(<span class="string">"no work on global work queue"</span>);</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (slowpath(head == mediator)) &#123;</span><br><span class="line">		<span class="comment">// 该线程在现线程竞争中失去了对队列的拥有权，这意味着libdispatch的效率很糟糕，</span></span><br><span class="line">		<span class="comment">// 这种情况意味着在线程池中有太多的线程，这个时候应该创建一个pengding线程，</span></span><br><span class="line">		<span class="comment">// 然后退出该线程，内核会在负载减弱的时候创建一个新的线程</span></span><br><span class="line">		_dispatch_debug(<span class="string">"Contention on queue: %p"</span>, dq);</span><br><span class="line">		_dispatch_queue_wakeup_global(dq);</span><br><span class="line"><span class="meta">#<span class="meta-keyword">if</span> DISPATCH_PERF_MON</span></span><br><span class="line">		dispatch_atomic_inc(&amp;_dispatch_bad_ratio);</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">		<span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 在返回之前将head指针的do_next保存下来，如果next为NULL，这意味着item是最后一个</span></span><br><span class="line">	next = fastpath(head-&gt;do_next);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (slowpath(!next)) &#123;</span><br><span class="line">		dq-&gt;dq_items_head = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (dispatch_atomic_cmpxchg2o(dq, dq_items_tail, head, <span class="literal">NULL</span>)) &#123;</span><br><span class="line">			<span class="comment">// head和tail头尾指针均为空</span></span><br><span class="line">			<span class="keyword">goto</span> out;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="comment">// 此时一定有item，该线程不会等待太久。</span></span><br><span class="line">		<span class="keyword">while</span> (!(next = head-&gt;do_next)) &#123;</span><br><span class="line">			_dispatch_hardware_pause();</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	dq-&gt;dq_items_head = next;</span><br><span class="line">	<span class="comment">// 再次唤醒全局队列</span></span><br><span class="line">	_dispatch_queue_wakeup_global(dq);</span><br><span class="line">out:</span><br><span class="line">	<span class="comment">// 返回需要处理的dc</span></span><br><span class="line">	<span class="keyword">return</span> head;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这里解释下我对再次调用<code>_dispatch_queue_wakeup_global</code>唤醒全局队列的理解：<br>我们知道并发队列中的dc执行是并发的，所以每一次出队dc后检查一下全局队列，是否还有dc在队列中。如果有就再次通知需要再创建一个work queue处理队列中剩余的dc，然后重复上面的步骤，类似于一种递归的过程。当多个work queue同时处理多个dc的时候，就是我们看到异步效果。</p>
+<h5 id="dispatch-continuation-pop"><a href="#dispatch-continuation-pop" class="headerlink" title="_dispatch_continuation_pop"></a>_dispatch_continuation_pop</h5><p><code>_dispatch_continuation_pop</code>函数实现了对任务的处理。这些任务可能是异步任务、group任务、栅栏任务甚至可能就是队列。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="keyword">inline</span> <span class="keyword">void</span></span><br><span class="line">_dispatch_continuation_pop(<span class="keyword">dispatch_object_t</span> dou) &#123;</span><br><span class="line">	<span class="keyword">dispatch_continuation_t</span> dc = dou._dc;</span><br><span class="line">	<span class="keyword">dispatch_group_t</span> dg;</span><br><span class="line"></span><br><span class="line">	_dispatch_trace_continuation_pop(_dispatch_queue_get_current(), dou);</span><br><span class="line">	<span class="comment">// 检测是不是队列，如果是，就进入_dispatch_queue_invoke处理队列</span></span><br><span class="line">	<span class="comment">// dispatch_barrier_async的任务会进入以下分支，以保证barrier任务和其他任务隔离，</span></span><br><span class="line">	<span class="comment">// 并通过dispath_semaphore_t实现通知barrier任务执行</span></span><br><span class="line">	<span class="keyword">if</span> (DISPATCH_OBJ_IS_VTABLE(dou._do)) &#123;</span><br><span class="line">		<span class="keyword">return</span> _dispatch_queue_invoke(dou._dq);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// Add the item back to the cache before calling the function. This</span></span><br><span class="line">	<span class="comment">// allows the 'hot' continuation to be used for a quick callback.</span></span><br><span class="line">	<span class="comment">//</span></span><br><span class="line">	<span class="comment">// The ccache version is per-thread.</span></span><br><span class="line">	<span class="comment">// Therefore, the object has not been reused yet.</span></span><br><span class="line">	<span class="comment">// This generates better assembly.</span></span><br><span class="line">	<span class="comment">// 是否是异步任务</span></span><br><span class="line">	<span class="keyword">if</span> ((<span class="keyword">long</span>)dc-&gt;do_vtable &amp; DISPATCH_OBJ_ASYNC_BIT) &#123;</span><br><span class="line">		_dispatch_continuation_free(dc);</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// 判断是否是group任务</span></span><br><span class="line">	<span class="keyword">if</span> ((<span class="keyword">long</span>)dc-&gt;do_vtable &amp; DISPATCH_OBJ_GROUP_BIT) &#123;</span><br><span class="line">		dg = dc-&gt;dc_group;</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		dg = <span class="literal">NULL</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// 是任务封装的dispatch_continuation_t结构体（dc），直接执行任务。</span></span><br><span class="line">	<span class="comment">// 这也是异步的block被调用的时机</span></span><br><span class="line">	_dispatch_client_callout(dc-&gt;dc_ctxt, dc-&gt;dc_func);</span><br><span class="line">	<span class="keyword">if</span> (dg) &#123;</span><br><span class="line">		<span class="comment">// 如果是group执行dispatch_group_leave</span></span><br><span class="line">		dispatch_group_leave(dg);</span><br><span class="line">		_dispatch_release(dg);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h5 id="dispatch-queue-invoke"><a href="#dispatch-queue-invoke" class="headerlink" title="_dispatch_queue_invoke"></a>_dispatch_queue_invoke</h5><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span></span><br><span class="line">_dispatch_queue_invoke(<span class="keyword">dispatch_queue_t</span> dq) &#123;</span><br><span class="line">	<span class="keyword">if</span> (!slowpath(DISPATCH_OBJECT_SUSPENDED(dq)) &amp;&amp;</span><br><span class="line">			fastpath(dispatch_atomic_cmpxchg2o(dq, dq_running, <span class="number">0</span>, <span class="number">1</span>))) &#123;</span><br><span class="line">		dispatch_atomic_acquire_barrier();</span><br><span class="line">		<span class="keyword">dispatch_queue_t</span> otq = dq-&gt;do_targetq, tq = <span class="literal">NULL</span>;</span><br><span class="line">		_dispatch_queue_drain(dq);</span><br><span class="line">		<span class="keyword">if</span> (dq-&gt;do_vtable-&gt;do_invoke) &#123;</span><br><span class="line">			<span class="comment">// Assume that object invoke checks it is executing on correct queue</span></span><br><span class="line">			tq = dx_invoke(dq);</span><br><span class="line">		&#125; <span class="keyword">else</span> <span class="keyword">if</span> (slowpath(otq != dq-&gt;do_targetq)) &#123;</span><br><span class="line">			<span class="comment">// An item on the queue changed the target queue</span></span><br><span class="line">			tq = dq-&gt;do_targetq;</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="comment">// We do not need to check the result.</span></span><br><span class="line">		<span class="comment">// When the suspend-count lock is dropped, then the check will happen.</span></span><br><span class="line">		dispatch_atomic_release_barrier();</span><br><span class="line">		<span class="comment">//dq_running减1，因为任务要么被直接执行了，要么被压到target队列了</span></span><br><span class="line">		(<span class="keyword">void</span>)dispatch_atomic_dec2o(dq, dq_running);</span><br><span class="line">		<span class="keyword">if</span> (tq) &#123;</span><br><span class="line">			<span class="keyword">return</span> _dispatch_queue_push(tq, dq);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	dq-&gt;do_next = DISPATCH_OBJECT_LISTLESS;</span><br><span class="line">	<span class="keyword">if</span> (!dispatch_atomic_sub2o(dq, do_suspend_cnt,</span><br><span class="line">			DISPATCH_OBJECT_SUSPEND_LOCK)) &#123;</span><br><span class="line">		<span class="comment">// 队列处于空闲状态，需要唤醒</span></span><br><span class="line">		<span class="keyword">if</span> (dq-&gt;dq_running == <span class="number">0</span>) &#123;</span><br><span class="line">			_dispatch_wakeup(dq); <span class="comment">// verify that the queue is idle</span></span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// 释放队列</span></span><br><span class="line">	_dispatch_release(dq); <span class="comment">// added when the queue is put on the list</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>现在我们整理一下队列异步执行的流程，如下图：<img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/dispatch_async.png" alt="dispatch_async"></p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ol>
+<li>队列与线程可以是多对一关系，一个线程上可以执行不同队列的任务，在主线程上一样适用。</li>
+<li>队列操作与开启线程的关系：<ul>
+<li>串行队列同步执行任务，任务在当前线程中有序执行，如果前面的任务没有完成则可能会阻塞当前线程。</li>
+<li>串行队列异步执行任务，开启一个线程，任务在新线程中有序执行，不会阻塞当前线程，新线程中的任务有序执行。</li>
+<li>并发队列同步执行任务，不会开启新线程，任务在当前线程中有序执行，如果前面的任务没有完成则可能会阻塞当前线程。</li>
+<li>并发队列异步执行任务，开启多个线程，具体数量由系统自己决定，任务在新开辟的线程中执行，不会阻塞当前线程，所有任务为无序执行。</li>
+<li>主队列同步执行任务，死锁。</li>
+<li>主队列异步执行任务，任务在主线程中有序执行，如果前面的任务没有完成则可能会阻塞当前线程。</li>
+</ul>
+</li>
+<li>队列的同步/异步决定是否具备开启线程的能力，队列的串行/并发决定处理任务的个数。</li>
+<li><code>dispatch_queue</code>通过结构体和链表，被实现为<code>FIFO</code>（先进先出）队列，无论串行队列和并发队列，都是符合<code>FIFO</code>的原则。两者的主要区别是：执行顺序不同，以及开启线程数不同。</li>
+<li><code>dispatch_sync</code>函数一般都在当前线程执行，利用与线程绑定的信号量来实现串行。</li>
+<li><code>dispatch_async</code>分发到主队列的任务由Runloop处理，而分发到其他队列的任务由线程池处理。</li>
+<li><p>Block并不是直接添加到队列上，而是先构成一个<code>dispatch_continuation</code>结构体。结构体包含了这个Block还有一些上下文信息。队列会将这些<code>dispatch_continuation</code>结构体添加队列的链表中。无论这些队列是什么类型的，最终都是和全局队列相关的。在全局队列执行Block的时候,libdispatch从全局队列中取出<code>dispatch_continuation</code>，调用<code>pthread_workqueue_additem_np</code>函数，将该全局队列自身、符合其优先级的workqueue信息以及<code>dispatch_continuation</code>结构体的回调函数传递给参数。<code>pthread_workqueue_additem_np</code>函数使用<code>workq_kernreturn</code>系统调用，通知workqueue增加应当执行的项目。根据该同志，XNU内核基于系统状态判断是否要生成线程。如果是overcommit优先级的全局队列workqueue则会始终生成线程。workqueue的线程执行<code>pthread_workqueue</code>函数，该函数调用libdispatch的回调函数。在该函数中执行加入到<code>dispatch_continuation</code>的Block</p>
+</li>
+<li><p>GCD死锁是队列导致的而不是线程导致，原因是<code>_dispatch_barrier_sync_f_slow</code>函数中使用了线程对应的信号量并且调用wait方法，从而导致线程死锁。</p>
+</li>
+<li><p>关于栅栏函数</p>
+<ul>
+<li><code>dispatch_barrier_async</code>适用的场景队列必须是用<code>DISPATCH_QUEUE_CONCURRENT</code>属性创建的队列，而使用全局并发队列的时候，其表现就和<code>dispatch_async</code>一样。原因：<code>dispatch_barrier_async</code>如果传入的是全局队列，在唤醒队列时会执行<code>_dispatch_queue_wakeup_global</code>函数，其执行效果同<code>dispatch_async</code>一致，而如果是自定义的队列的时候，<code>_dispatch_continuation_pop</code>中会执行<code>dispatch_queue_invoke</code>。在while循环中依次取出任务并调用<code>_dispatch_continuation_redirect</code>函数，使得block并发执行。当遇到<code>DISPATCH_OBJ_BARRIER_BIT</code>标记时，会修改<code>do_suspend_cnt</code>标志以保证后续while循环时直接goto out。barrier block的任务执行完之后<code>_dispatch_queue_class_invoke</code>会将<code>do_suspend_cnt</code>重置回去，所以barrier block之后的任务会继续执行。</li>
+</ul>
+</li>
+</ol>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+      <div>
+        <ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者：</strong>
+    NeroXie
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="http://www.neroxie.com/2019/01/22/深入理解GCD之dispatch-queue/" title="深入理解GCD之dispatch_queue">http://www.neroxie.com/2019/01/22/深入理解GCD之dispatch-queue/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>
+    本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/3.0/" rel="external nofollow" target="_blank">CC BY-NC-SA 3.0</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Objective-C/" rel="tag"># Objective-C</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2019/01/22/深入理解GCD之dispatch-semaphore/" rel="next" title="深入理解GCD之dispatch_semaphore">
+                <i class="fa fa-chevron-left"></i> 深入理解GCD之dispatch_semaphore
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2019/01/22/深入理解GCD之dispatch-group/" rel="prev" title="深入理解GCD之dispatch_group">
+                深入理解GCD之dispatch_group <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="gitalk-container"></div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="https://avatars1.githubusercontent.com/u/17306472?s=460&v=4F" alt="NeroXie">
+            
+              <p class="site-author-name" itemprop="name">NeroXie</p>
+              <p class="site-description motion-element" itemprop="description">May the Force be with you</p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">24</span>
+                  <span class="site-state-item-name">日志</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                <a href="/categories/index.html">
+                  <span class="site-state-item-count">10</span>
+                  <span class="site-state-item-name">分类</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                <a href="/tags/index.html">
+                  <span class="site-state-item-count">6</span>
+                  <span class="site-state-item-name">标签</span>
+                </a>
+              </div>
+            
+
+          </nav>
+
+          
+
+          
+            <div class="links-of-author motion-element">
+                
+                  <span class="links-of-author-item">
+                    <a href="https://github.com/YiHuaXie" target="_blank" title="GitHub">
+                      
+                        <i class="fa fa-fw fa-github"></i>GitHub</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="mailto:xyh30902@163.com" target="_blank" title="E-Mail">
+                      
+                        <i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="https://juejin.im/user/595c8f866fb9a06bbf6fecba" target="_blank" title="掘金">
+                      
+                        <i class="fa fa-fw fa-globe"></i>掘金</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="https://www.jianshu.com/u/17c52abac13c" target="_blank" title="简书">
+                      
+                        <i class="fa fa-fw fa-heartbeat"></i>简书</a>
+                  </span>
+                
+            </div>
+          
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#队列和线程的关系"><span class="nav-number">1.</span> <span class="nav-text">队列和线程的关系</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#队列的定义"><span class="nav-number">2.</span> <span class="nav-text">队列的定义</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#dispatch-queue-s"><span class="nav-number">2.1.</span> <span class="nav-text">dispatch_queue_s</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#dispatch-queue-vtable-s"><span class="nav-number">2.2.</span> <span class="nav-text">dispatch_queue_vtable_s</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#队列的类型"><span class="nav-number">3.</span> <span class="nav-text">队列的类型</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#主队列"><span class="nav-number">3.1.</span> <span class="nav-text">主队列</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#do-vtable"><span class="nav-number">3.1.1.</span> <span class="nav-text">do_vtable</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#do-targetq"><span class="nav-number">3.1.2.</span> <span class="nav-text">do_targetq</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#do-ref-cnt、do-xref-cnt"><span class="nav-number">3.1.3.</span> <span class="nav-text">do_ref_cnt、do_xref_cnt</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#管理队列"><span class="nav-number">3.2.</span> <span class="nav-text">管理队列</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#do-vtable-1"><span class="nav-number">3.2.1.</span> <span class="nav-text">do_vtable</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#do-targetq-1"><span class="nav-number">3.2.2.</span> <span class="nav-text">do_targetq</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#do-ref-cnt、do-xref-cnt-1"><span class="nav-number">3.2.3.</span> <span class="nav-text">do_ref_cnt、do_xref_cnt</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#自定义队列"><span class="nav-number">3.3.</span> <span class="nav-text">自定义队列</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#slowpath-x-、fastpath-x"><span class="nav-number">3.3.1.</span> <span class="nav-text">slowpath(x)、fastpath(x)</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#do-vtable-2"><span class="nav-number">3.3.2.</span> <span class="nav-text">do_vtable</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#do-targetq-2"><span class="nav-number">3.3.3.</span> <span class="nav-text">do_targetq</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#dq-serialnum"><span class="nav-number">3.3.4.</span> <span class="nav-text">dq_serialnum</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#全局队列"><span class="nav-number">3.4.</span> <span class="nav-text">全局队列</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#do-vtable-3"><span class="nav-number">3.4.1.</span> <span class="nav-text">do_vtable</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#do-targetq-3"><span class="nav-number">3.4.2.</span> <span class="nav-text">do_targetq</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#do-ref-cnt、do-xref-cnt-2"><span class="nav-number">3.4.3.</span> <span class="nav-text">do_ref_cnt、do_xref_cnt</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#do-ctxt"><span class="nav-number">3.4.4.</span> <span class="nav-text">do_ctxt</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#队列的同步：dispatch-sync分析"><span class="nav-number">4.</span> <span class="nav-text">队列的同步：dispatch_sync分析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#入口函数：dispatch-sync"><span class="nav-number">4.1.</span> <span class="nav-text">入口函数：dispatch_sync</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#重点函数：dispatch-barrier-sync-f"><span class="nav-number">4.2.</span> <span class="nav-text">重点函数：dispatch_barrier_sync_f</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#dispatch-barrier-sync-f-invoke"><span class="nav-number">4.3.</span> <span class="nav-text">_dispatch_barrier_sync_f_invoke</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#GCD死锁"><span class="nav-number">4.4.</span> <span class="nav-text">GCD死锁</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#dispatch-sync-f-invoke"><span class="nav-number">4.5.</span> <span class="nav-text">_dispatch_sync_f_invoke</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#重点函数：-dispatch-sync-f2"><span class="nav-number">4.6.</span> <span class="nav-text">重点函数：_dispatch_sync_f2</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#队列的异步：dispatch-async分析"><span class="nav-number">5.</span> <span class="nav-text">队列的异步：dispatch_async分析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#入口函数：dispatch-async"><span class="nav-number">5.1.</span> <span class="nav-text">入口函数：dispatch_async</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#dispatch-continuation-t结构体"><span class="nav-number">5.2.</span> <span class="nav-text">dispatch_continuation_t结构体</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#任务入队：-dispatch-queue-push"><span class="nav-number">5.3.</span> <span class="nav-text">任务入队：_dispatch_queue_push</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#dispatch-trace-queue-push-list"><span class="nav-number">5.3.1.</span> <span class="nav-text">_dispatch_trace_queue_push_list</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#dispatch-queue-push-list"><span class="nav-number">5.3.2.</span> <span class="nav-text">_dispatch_queue_push_list</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#dispatch-queue-push-list-slow"><span class="nav-number">5.3.3.</span> <span class="nav-text">_dispatch_queue_push_list_slow</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#唤醒队列：-dispatch-wakeup"><span class="nav-number">5.4.</span> <span class="nav-text">唤醒队列：_dispatch_wakeup</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#dispatch-queue-wakeup-main"><span class="nav-number">5.4.1.</span> <span class="nav-text">_dispatch_queue_wakeup_main</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#dispatch-queue-wakeup-global"><span class="nav-number">5.4.2.</span> <span class="nav-text">_dispatch_queue_wakeup_global</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#队列的任务调度"><span class="nav-number">5.5.</span> <span class="nav-text">队列的任务调度</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#主队列的任务调度：-dispatch-main-queue-callback-4CF"><span class="nav-number">5.5.1.</span> <span class="nav-text">主队列的任务调度：_dispatch_main_queue_callback_4CF</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#全局队列的任务调度：-dispatch-worker-thread2"><span class="nav-number">5.5.2.</span> <span class="nav-text">全局队列的任务调度：_dispatch_worker_thread2</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#dispatch-queue-concurrent-drain-one"><span class="nav-number">5.5.2.1.</span> <span class="nav-text">_dispatch_queue_concurrent_drain_one</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#dispatch-continuation-pop"><span class="nav-number">5.5.2.2.</span> <span class="nav-text">_dispatch_continuation_pop</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#dispatch-queue-invoke"><span class="nav-number">5.5.2.3.</span> <span class="nav-text">_dispatch_queue_invoke</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2018 &mdash; <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">NeroXie</span>
+
+  
+</div>
+
+
+  <div class="powered-by">NeroXie的个人博客</div>
+
+
+
+
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+<div class="theme-info">
+  <div class="powered-by"></div>
+  <span class="post-count">博客全站共70.1k字</span>
+</div>
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/canvas-nest/canvas-nest.min.js"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.4"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+  <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+  <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+  <script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+   <script type="text/javascript">
+        var gitalk = new Gitalk({
+          clientID: '5e5c6074ea6483a9380d',
+          clientSecret: 'd16d85928f70d31702f591a6ba8c47b3b8fe432c',
+          repo: 'YiHuaXie.github.io',
+          owner: 'YiHuaXie',
+          admin: ['YiHuaXie'],
+          id: md5(location.pathname),
+         labels: 'gitalk'.split(',').filter(l => l),
+          perPage: 15,
+          pagerDirection: 'last',
+          createIssueManually: false,
+          distractionFreeMode: true
+        })
+        gitalk.render('gitalk-container')           
+       </script>
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link href="/lib/pace/pace-theme-flash.min.css?v=1.0.2" rel="stylesheet">
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="Objective-C,">
+
+
+
+
+
+
+
+
+
+
+<meta name="description" content="消息发送在Objective-C里面调用一个方法[object method]，运行时会将它翻译成objc_msgSend(id self, SEL op, ...)的形式。 objc_msgSendobjc_msgSend的实现在objc-msg-arm.s、objc-msg-arm64.s等文件中，是通过汇编实现的。这里主要看在arm64即objc-msg-arm64.s的实现。由于汇编不熟，">
+<meta name="keywords" content="Objective-C">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OC消息机制和super关键字">
+<meta property="og:url" content="http://www.neroxie.com/2019/03/12/OC消息机制和super关键字/index.html">
+<meta property="og:site_name" content="NeroXie的个人博客">
+<meta property="og:description" content="消息发送在Objective-C里面调用一个方法[object method]，运行时会将它翻译成objc_msgSend(id self, SEL op, ...)的形式。 objc_msgSendobjc_msgSend的实现在objc-msg-arm.s、objc-msg-arm64.s等文件中，是通过汇编实现的。这里主要看在arm64即objc-msg-arm64.s的实现。由于汇编不熟，">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/objc_msgsend.png">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/message_redirection.jpg">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/method_signature.jpg">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/%E6%B6%88%E6%81%AF%E6%9C%BA%E5%88%B6%E6%B5%81%E7%A8%8B%E5%9B%BE.png">
+<meta property="og:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/super_init.jpg">
+<meta property="og:updated_time" content="2022-11-23T20:14:09.305Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="OC消息机制和super关键字">
+<meta name="twitter:description" content="消息发送在Objective-C里面调用一个方法[object method]，运行时会将它翻译成objc_msgSend(id self, SEL op, ...)的形式。 objc_msgSendobjc_msgSend的实现在objc-msg-arm.s、objc-msg-arm64.s等文件中，是通过汇编实现的。这里主要看在arm64即objc-msg-arm64.s的实现。由于汇编不熟，">
+<meta name="twitter:image" content="https://neroblog.oss-cn-hangzhou.aliyuncs.com/objc_msgsend.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://www.neroxie.com/2019/03/12/OC消息机制和super关键字/">
+
+
+
+
+
+  <title>OC消息机制和super关键字 | NeroXie的个人博客</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+    <a href="https://github.com/YiHuaXie" class="github-corner" aria-label="View source on GitHub"><svg width="80" height="80" viewbox="0 0 250 250" style="fill:#151513; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg></a><style>.github-corner:hover .octo-arm{animation:octocat-wave 560ms ease-in-out}@keyframes octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}@media (max-width:500px){.github-corner:hover .octo-arm{animation:none}.github-corner .octo-arm{animation:octocat-wave 560ms ease-in-out}}</style>
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta custom-logo">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">NeroXie的个人博客</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://www.neroxie.com/2019/03/12/OC消息机制和super关键字/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="NeroXie">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="https://avatars1.githubusercontent.com/u/17306472?s=460&v=4F">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="NeroXie的个人博客">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">OC消息机制和super关键字</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-03-12T19:52:20+00:00">
+                2019-03-12
+              </time>
+            
+
+            
+              <span class="post-meta-divider">|</span>
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-check-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">更新于&#58;</span>
+              
+              <time title="更新于" itemprop="dateModified" datetime="2022-11-23T20:14:09+00:00">
+                2022-11-23
+              </time>
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Runtime/" itemprop="url" rel="index">
+                    <span itemprop="name">Runtime</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+            <div class="post-wordcount">
+              
+                
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">字数统计&#58;</span>
+                
+                <span title="字数统计">
+                  1.8k
+                </span>
+              
+
+              
+
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="消息发送"><a href="#消息发送" class="headerlink" title="消息发送"></a>消息发送</h2><p>在Objective-C里面调用一个方法<code>[object method]</code>，运行时会将它翻译成<code>objc_msgSend(id self, SEL op, ...)</code>的形式。</p>
+<h3 id="objc-msgSend"><a href="#objc-msgSend" class="headerlink" title="objc_msgSend"></a>objc_msgSend</h3><p><code>objc_msgSend</code>的实现在<code>objc-msg-arm.s</code>、<code>objc-msg-arm64.s</code>等文件中，是通过汇编实现的。这里主要看在<code>arm64</code>即<code>objc-msg-arm64.s</code>的实现。由于汇编不熟，里面的实现只能连看带猜。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line">	ENTRY _objc_msgSend</span><br><span class="line">	UNWIND _objc_msgSend, NoFrame</span><br><span class="line">	MESSENGER_START</span><br><span class="line"></span><br><span class="line">	cmp	x0, #0			// nil check and tagged pointer check</span><br><span class="line">	b.le	LNilOrTagged		//  (MSB tagged pointer looks negative)</span><br><span class="line">	ldr	x13, [x0]		// x13 = isa</span><br><span class="line">	and	x16, x13, #ISA_MASK	// x16 = class	</span><br><span class="line">LGetIsaDone:</span><br><span class="line">	CacheLookup NORMAL		// calls imp or objc_msgSend_uncached</span><br><span class="line"></span><br><span class="line">LNilOrTagged:</span><br><span class="line">    /* nil check，如果为空就是调用LReturnZero，LReturnZero里调用MESSENGER_END_NIL*/</span><br><span class="line">	b.eq	LReturnZero		// nil check</span><br><span class="line"></span><br><span class="line">	// tagged</span><br><span class="line">	mov	x10, #0xf000000000000000</span><br><span class="line">	cmp	x0, x10</span><br><span class="line">	b.hs	LExtTag</span><br><span class="line">	adrp	x10, _objc_debug_taggedpointer_classes@PAGE</span><br><span class="line">	add	x10, x10, _objc_debug_taggedpointer_classes@PAGEOFF</span><br><span class="line">	ubfx	x11, x0, #60, #4</span><br><span class="line">	ldr	x16, [x10, x11, LSL #3]</span><br><span class="line">	b	LGetIsaDone</span><br><span class="line"></span><br><span class="line">LExtTag:</span><br><span class="line">	// ext tagged</span><br><span class="line">	adrp	x10, _objc_debug_taggedpointer_ext_classes@PAGE</span><br><span class="line">	add	x10, x10, _objc_debug_taggedpointer_ext_classes@PAGEOFF</span><br><span class="line">	ubfx	x11, x0, #52, #8</span><br><span class="line">	ldr	x16, [x10, x11, LSL #3]</span><br><span class="line">	b	LGetIsaDone</span><br><span class="line">	</span><br><span class="line">LReturnZero:</span><br><span class="line">	// x0 is already zero</span><br><span class="line">	mov	x1, #0</span><br><span class="line">	movi	d0, #0</span><br><span class="line">	movi	d1, #0</span><br><span class="line">	movi	d2, #0</span><br><span class="line">	movi	d3, #0</span><br><span class="line">	MESSENGER_END_NIL</span><br><span class="line">	ret</span><br><span class="line"></span><br><span class="line">	END_ENTRY _objc_msgSend</span><br></pre></td></tr></table></figure>
+<p>上面的流程可能是这样的：<br><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/objc_msgsend.png" alt="objc_msgsend"></p>
+<p>从<code>CacheLookup</code>的注释有两处：</p>
+<ol>
+<li><code>calls imp or objc_msgSend_uncached</code></li>
+<li><code>Locate the implementation for a selector in a class method cache.</code></li>
+</ol>
+<p>即使看不懂汇编代码，但是从上面的注释我们可以猜测，消息机制会先从缓存中去查找。</p>
+<h3 id="objc-msgSend-uncached"><a href="#objc-msgSend-uncached" class="headerlink" title="__objc_msgSend_uncached"></a>__objc_msgSend_uncached</h3><p>通过方法名我们可以知道，没有缓存的时候应该会执行<code>__objc_msgSend_uncached</code>。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">STATIC_ENTRY __objc_msgSend_uncached</span><br><span class="line">UNWIND __objc_msgSend_uncached, FrameWithNoSaves</span><br><span class="line"></span><br><span class="line">// THIS IS NOT A CALLABLE C FUNCTION</span><br><span class="line">// Out-of-band x16 is the class to search</span><br><span class="line"></span><br><span class="line">MethodTableLookup</span><br><span class="line">br	x17</span><br><span class="line"></span><br><span class="line">END_ENTRY __objc_msgSend_uncached</span><br></pre></td></tr></table></figure>
+<p>这里的<code>MethodTableLookup</code>里涉及到<code>objc-runtime-new.mm</code>文件中的<code>_class_lookupMethodAndLoadCache3</code>。该函数会调用<code>lookUpImpOrForward</code>函数。</p>
+<h3 id="lookUpImpOrForward"><a href="#lookUpImpOrForward" class="headerlink" title="lookUpImpOrForward"></a>lookUpImpOrForward</h3><p><code>lookUpImpOrForward</code>会返回一个<code>imp</code>，它的函数实现比较长，但是注释写的非常清楚。它的实现主要由以下几步（这里直接从缓存获取开始）：</p>
+<ol>
+<li>通过<code>cache_getImp</code>从缓存中获取方法，有则返回，否则进入第2步；</li>
+<li>通过<code>getMethodNoSuper_nolock</code>从类的方法列表中获取，有加入缓存中并返回，否则进入第3步；</li>
+<li>通过父类的缓存和父类的方法列表中寻找是否有对应的imp，此时会进入一个<code>for</code>循环，沿着类的父类一直往上找，直接找到NSObject为止。如果找到返回，否则进入第4步；</li>
+<li>进入方法决议（method resolve）的过程即调用<code>_class_resolveMethod</code>，如果失败，进入第5步；</li>
+<li>在缓存、当前类、父类以及方法决议都没有找到的情况下，Objective-C还为我们提供了最后一次翻身的机会，调用<code>_objc_msgForward_impcache</code>进行方法转发，如果找到便加入缓存；如果没有就crash。</li>
+</ol>
+<p>上述过程中有几个比较重要的函数：</p>
+<h4 id="class-resolveMethod"><a href="#class-resolveMethod" class="headerlink" title="_class_resolveMethod"></a><strong>_class_resolveMethod</strong></h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">void _class_resolveMethod(Class cls, SEL sel, id inst) &#123;</span><br><span class="line">    if (! cls-&gt;isMetaClass()) &#123;</span><br><span class="line">        // try [cls resolveInstanceMethod:sel]</span><br><span class="line">        _class_resolveInstanceMethod(cls, sel, inst);</span><br><span class="line">    &#125; </span><br><span class="line">    else &#123;</span><br><span class="line">        // try [nonMetaClass resolveClassMethod:sel]</span><br><span class="line">        // and [cls resolveInstanceMethod:sel]</span><br><span class="line">        _class_resolveClassMethod(cls, sel, inst);</span><br><span class="line">        if (!lookUpImpOrNil(cls, sel, inst, </span><br><span class="line">                            NO/*initialize*/, YES/*cache*/, NO/*resolver*/)) </span><br><span class="line">        &#123;</span><br><span class="line">            _class_resolveInstanceMethod(cls, sel, inst);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上述函数会根据当前传入的类的是不是一个元类，在<code>_class_resolveInstanceMethod</code>和<code>_class_resolveClassMethod</code>中选择一个进行调用。注释也说明了这两个方法的作用就是判断当前类是否实现了 <code>resolveInstanceMethod:</code>或者<code>resolveClassMethod:</code>方法，然后用<code>objc_msgSend</code>执行上述方法。</p>
+<h4 id="class-resolveClassMethod"><a href="#class-resolveClassMethod" class="headerlink" title="_class_resolveClassMethod"></a><strong>_class_resolveClassMethod</strong></h4><p><code>_class_resolveClassMethod</code>和<code>_class_resolveInstanceMethod</code>实现类似，这里就只看<code>_class_resolveClassMethod</code>的实现。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">static void _class_resolveClassMethod(Class cls, SEL sel, id inst) &#123;</span><br><span class="line">    assert(cls-&gt;isMetaClass());</span><br><span class="line"></span><br><span class="line">    if (! lookUpImpOrNil(cls, SEL_resolveClassMethod, inst, </span><br><span class="line">                         NO/*initialize*/, YES/*cache*/, NO/*resolver*/)) &#123;</span><br><span class="line">         //没有找到resolveClassMethod方法，直接返回。</span><br><span class="line">        return;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    BOOL (*msg)(Class, SEL, SEL) = (typeof(msg))objc_msgSend;</span><br><span class="line">    bool resolved = msg(_class_getNonMetaClass(cls, inst), </span><br><span class="line">                        SEL_resolveClassMethod, sel);</span><br><span class="line"></span><br><span class="line">    // 缓存结果</span><br><span class="line">    IMP imp = lookUpImpOrNil(cls, sel, inst, </span><br><span class="line">                             NO/*initialize*/, YES/*cache*/, NO/*resolver*/);</span><br><span class="line">    // 以下代码省略不影响阅读                          </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="objc-msgForward-impcache"><a href="#objc-msgForward-impcache" class="headerlink" title="_objc_msgForward_impcache"></a><strong>_objc_msgForward_impcache</strong></h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">STATIC_ENTRY __objc_msgForward_impcache</span><br><span class="line"></span><br><span class="line">MESSENGER_START</span><br><span class="line">nop</span><br><span class="line">MESSENGER_END_SLOW</span><br><span class="line"></span><br><span class="line">// No stret specialization.</span><br><span class="line">b	__objc_msgForward</span><br><span class="line"></span><br><span class="line">END_ENTRY __objc_msgForward_impcache</span><br><span class="line"></span><br><span class="line">ENTRY __objc_msgForward</span><br><span class="line"></span><br><span class="line">adrp	x17, __objc_forward_handler@PAGE</span><br><span class="line">ldr	x17, [x17, __objc_forward_handler@PAGEOFF]</span><br><span class="line">br	x17</span><br><span class="line"></span><br><span class="line">END_ENTRY __objc_msgForward</span><br></pre></td></tr></table></figure>
+<p><code>_objc_msgForward_impcache</code>用来进行消息转发，但是其真正的核心是调用<code>_objc_msgForward</code>。</p>
+<h3 id="消息转发"><a href="#消息转发" class="headerlink" title="消息转发"></a>消息转发</h3><p>关于<code>_objc_msgForward</code>在<code>objc</code>中并没有其相关实现，只能看到<code>_objc_forward_handler</code>。其实<code>_objc_msgForward</code>的实现是在<code>CFRuntime.c</code>中的，但是开源出来的<code>CFRuntime.c</code>并没有相关实现，但是也不影响我们对真理的追求。</p>
+<p>我们做几个实验来验证消息转发。</p>
+<h4 id="消息重定向测试"><a href="#消息重定向测试" class="headerlink" title="消息重定向测试"></a>消息重定向测试</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line">// .h文件</span><br><span class="line">@interface AObject : NSObject</span><br><span class="line"></span><br><span class="line">- (void)sendMessage;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line">// .m文件</span><br><span class="line">@implementation AObject</span><br><span class="line"></span><br><span class="line">/** 验证消息重定向 */</span><br><span class="line">- (id)forwardingTargetForSelector:(SEL)aSelector &#123;</span><br><span class="line">    if (aSelector == @selector(sendMessage)) &#123;</span><br><span class="line">         return [BObject new];</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    return [super forwardingTargetForSelector:aSelector];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">// .h文件</span><br><span class="line">@interface BObject : NSObject</span><br><span class="line"></span><br><span class="line">- (void)sendMessage;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">// .m文件</span><br><span class="line">@implementation BObject</span><br><span class="line"></span><br><span class="line">- (void)sendMessage &#123;</span><br><span class="line">    NSLog(@&quot;%@ send message&quot;, self.class);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">// 调用</span><br><span class="line">AObject *a = [AObject new];</span><br><span class="line">[a sendMessage];</span><br></pre></td></tr></table></figure>
+<p>运行结果：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">2019-03-12 10:18:54.252949+0800 iOSCodeLearning[18165:5967575] BObject send message</span><br></pre></td></tr></table></figure>
+<p>在<code>forwardingTargetForSelector:</code>处打个断点，查看一下调用栈：<br><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/message_redirection.jpg" alt="message_redirection"></p>
+<p><code>_CF_forwarding_prep_0</code>和<code>___forwarding___</code>这两个方法会先被调用了，之后调用了<code>forwardingTargetForSelector:</code>。</p>
+<h4 id="方法签名测试"><a href="#方法签名测试" class="headerlink" title="方法签名测试"></a>方法签名测试</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line">// .h文件</span><br><span class="line">@interface AObject : NSObject</span><br><span class="line"></span><br><span class="line">- (void)sendMessage;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line">// .m文件</span><br><span class="line">@implementation AObject</span><br><span class="line"></span><br><span class="line">/** 消息重定向 */</span><br><span class="line">- (id)forwardingTargetForSelector:(SEL)aSelector &#123;</span><br><span class="line">   return nil;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">/** 方法签名测试 */</span><br><span class="line">- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector &#123;</span><br><span class="line">    if (aSelector == @selector(sendMessage)) &#123;</span><br><span class="line">        return [BObject instanceMethodSignatureForSelector:@selector(sendMessage)];</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    return [super methodSignatureForSelector:aSelector];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (void)forwardInvocation:(NSInvocation *)anInvocation &#123;</span><br><span class="line">    SEL selector = [anInvocation selector];</span><br><span class="line">    if (selector == @selector(sendMessage)) &#123;</span><br><span class="line">        [anInvocation invokeWithTarget:[BObject new]];</span><br><span class="line">    &#125; else &#123;</span><br><span class="line">        [super forwardInvocation:anInvocation];</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">// .h文件</span><br><span class="line">@interface BObject : NSObject</span><br><span class="line"></span><br><span class="line">- (void)sendMessage;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">// .m文件</span><br><span class="line">@implementation BObject</span><br><span class="line"></span><br><span class="line">- (void)sendMessage &#123;</span><br><span class="line">    NSLog(@&quot;%@ send message&quot;, self.class);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">// 调用</span><br><span class="line">AObject *a = [AObject new];</span><br><span class="line">[a sendMessage];</span><br></pre></td></tr></table></figure>
+<p><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/method_signature.jpg" alt="method_signature"></p>
+<p>代码执行结果和消息重定向测试的运行结果一致。<code>_CF_forwarding_prep_0</code>和<code>___forwarding___</code>这两个方法又再次被调用了，之后代码会先执行<code>forwardingTargetForSelector:</code>（消息重定向），消息重定向如果失败后调用<code>methodSignatureForSelector:</code>和<code>forwardInvocation:</code>方法签名。所以说<code>___forwarding___</code>方法才是消息转发的真正实现。</p>
+<h4 id="crash测试"><a href="#crash测试" class="headerlink" title="crash测试"></a>crash测试</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line">// .h文件</span><br><span class="line">@interface AObject : NSObject</span><br><span class="line"></span><br><span class="line">- (void)sendMessage;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line">// .m文件</span><br><span class="line">@implementation AObject</span><br><span class="line"></span><br><span class="line">- (id)forwardingTargetForSelector:(SEL)aSelector &#123;</span><br><span class="line">    return nil;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector &#123;</span><br><span class="line">    return [super methodSignatureForSelector:aSelector];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (void)forwardInvocation:(NSInvocation *)anInvocation &#123;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">/** 验证Crash */</span><br><span class="line">- (void)doesNotRecognizeSelector:(SEL)aSelector &#123;</span><br><span class="line">    if (aSelector == @selector(sendMessage)) &#123;</span><br><span class="line">        NSLog(@&quot;%@ doesNotRecognizeSelector&quot;, self.class);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">// .h文件</span><br><span class="line">@interface BObject : NSObject</span><br><span class="line"></span><br><span class="line">- (void)sendMessage;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">// .m文件</span><br><span class="line">@implementation BObject</span><br><span class="line"></span><br><span class="line">- (void)sendMessage &#123;</span><br><span class="line">    NSLog(@&quot;%@ send message&quot;, self.class);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">// 调用</span><br><span class="line">AObject *a = [AObject new];</span><br><span class="line">[a sendMessage];</span><br></pre></td></tr></table></figure>
+<p>代码运行结果肯定是crash，结合上面的代码我们知道消息转发会调用<code>___forwarding___</code>这个内部方法。<code>___forwarding___</code>方法调用顺序是<code>forwardingTargetForSelector:</code>-&gt;<code>methodSignatureForSelector:</code>-&gt;<code>doesNotRecognizeSelector:</code></p>
+<p>我们用一张图表示整个消息发送的过程：<br><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/%E6%B6%88%E6%81%AF%E6%9C%BA%E5%88%B6%E6%B5%81%E7%A8%8B%E5%9B%BE.png" alt="消息机制流程图"></p>
+<h2 id="super关键字"><a href="#super关键字" class="headerlink" title="super关键字"></a>super关键字</h2><p>我们先查看一下执行<code>[super init]</code>的时候，调用了那些方法<br><img src="https://neroblog.oss-cn-hangzhou.aliyuncs.com/super_init.jpg" alt="super_init"></p>
+<p><code>objc_msgSendSuper2</code>的声明在<code>objc-abi.h</code>中</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">// objc_msgSendSuper2() takes the current search class, not its superclass.</span><br><span class="line">OBJC_EXPORT id _Nullable</span><br><span class="line">objc_msgSendSuper2(struct objc_super * _Nonnull super, SEL _Nonnull op, ...)</span><br><span class="line">    OBJC_AVAILABLE(10.6, 2.0, 9.0, 1.0, 2.0);</span><br></pre></td></tr></table></figure>
+<p><code>objc_super</code>的定义如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">struct objc_super &#123;</span><br><span class="line">    /// Specifies an instance of a class.</span><br><span class="line">    __unsafe_unretained _Nonnull id receiver;</span><br><span class="line"></span><br><span class="line">    /// Specifies the particular superclass of the instance to message. </span><br><span class="line">#if !defined(__cplusplus)  &amp;&amp;  !__OBJC2__</span><br><span class="line">    /* For compatibility with old objc-runtime.h header */</span><br><span class="line">    __unsafe_unretained _Nonnull Class class;</span><br><span class="line">#else</span><br><span class="line">    __unsafe_unretained _Nonnull Class super_class;</span><br><span class="line">#endif</span><br><span class="line">    /* super_class is the first class to search */</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>从上面的定义我们可以知道<code>receiver</code>即消息的实际接收者，<br><code>super_class</code>为指向当前类的父类。</p>
+<p>所以该函数实际的操作是：从<code>objc_super</code>结构体指向的<code>super_class</code>开始查找，直到会找到NSObject的方法为止。找到后以<code>receiver</code>去调用。当然整个查找的过程还是和消息发送的流程一样。</p>
+<p>所以我们能理解为什么下面这段代码执行的结果都是<code>AObject</code>了吧。虽然使用<code>[super class]</code>，但是真正执行方法的对象还是<code>AObject</code>。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">// 代码</span><br><span class="line">@implementation AObject</span><br><span class="line"></span><br><span class="line">- (instancetype)init &#123;</span><br><span class="line">    if (self = [super init]) &#123;</span><br><span class="line">        NSLog(@&quot;%@&quot;, [super class]);</span><br><span class="line">        NSLog(@&quot;%@&quot;, [self class]);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    return self;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">// 执行结果</span><br><span class="line">2019-03-12 19:44:46.003313+0800 iOSCodeLearning[34431:7234182] AObject</span><br><span class="line">2019-03-12 19:44:46.003442+0800 iOSCodeLearning[34431:7234182] AObject</span><br></pre></td></tr></table></figure>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+      <div>
+        <ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者：</strong>
+    NeroXie
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="http://www.neroxie.com/2019/03/12/OC消息机制和super关键字/" title="OC消息机制和super关键字">http://www.neroxie.com/2019/03/12/OC消息机制和super关键字/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>
+    本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/3.0/" rel="external nofollow" target="_blank">CC BY-NC-SA 3.0</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Objective-C/" rel="tag"># Objective-C</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2019/01/22/深入理解GCD之dispatch-group/" rel="next" title="深入理解GCD之dispatch_group">
+                <i class="fa fa-chevron-left"></i> 深入理解GCD之dispatch_group
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2019/04/24/重拾RunLoop原理/" rel="prev" title="重拾RunLoop原理">
+                重拾RunLoop原理 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="gitalk-container"></div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="https://avatars1.githubusercontent.com/u/17306472?s=460&v=4F" alt="NeroXie">
+            
+              <p class="site-author-name" itemprop="name">NeroXie</p>
+              <p class="site-description motion-element" itemprop="description">May the Force be with you</p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">24</span>
+                  <span class="site-state-item-name">日志</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                <a href="/categories/index.html">
+                  <span class="site-state-item-count">10</span>
+                  <span class="site-state-item-name">分类</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                <a href="/tags/index.html">
+                  <span class="site-state-item-count">6</span>
+                  <span class="site-state-item-name">标签</span>
+                </a>
+              </div>
+            
+
+          </nav>
+
+          
+
+          
+            <div class="links-of-author motion-element">
+                
+                  <span class="links-of-author-item">
+                    <a href="https://github.com/YiHuaXie" target="_blank" title="GitHub">
+                      
+                        <i class="fa fa-fw fa-github"></i>GitHub</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="mailto:xyh30902@163.com" target="_blank" title="E-Mail">
+                      
+                        <i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="https://juejin.im/user/595c8f866fb9a06bbf6fecba" target="_blank" title="掘金">
+                      
+                        <i class="fa fa-fw fa-globe"></i>掘金</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="https://www.jianshu.com/u/17c52abac13c" target="_blank" title="简书">
+                      
+                        <i class="fa fa-fw fa-heartbeat"></i>简书</a>
+                  </span>
+                
+            </div>
+          
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#消息发送"><span class="nav-number">1.</span> <span class="nav-text">消息发送</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#objc-msgSend"><span class="nav-number">1.1.</span> <span class="nav-text">objc_msgSend</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#objc-msgSend-uncached"><span class="nav-number">1.2.</span> <span class="nav-text">__objc_msgSend_uncached</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#lookUpImpOrForward"><span class="nav-number">1.3.</span> <span class="nav-text">lookUpImpOrForward</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#class-resolveMethod"><span class="nav-number">1.3.1.</span> <span class="nav-text">_class_resolveMethod</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#class-resolveClassMethod"><span class="nav-number">1.3.2.</span> <span class="nav-text">_class_resolveClassMethod</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#objc-msgForward-impcache"><span class="nav-number">1.3.3.</span> <span class="nav-text">_objc_msgForward_impcache</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#消息转发"><span class="nav-number">1.4.</span> <span class="nav-text">消息转发</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#消息重定向测试"><span class="nav-number">1.4.1.</span> <span class="nav-text">消息重定向测试</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#方法签名测试"><span class="nav-number">1.4.2.</span> <span class="nav-text">方法签名测试</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#crash测试"><span class="nav-number">1.4.3.</span> <span class="nav-text">crash测试</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#super关键字"><span class="nav-number">2.</span> <span class="nav-text">super关键字</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2018 &mdash; <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">NeroXie</span>
+
+  
+</div>
+
+
+  <div class="powered-by">NeroXie的个人博客</div>
+
+
+
+
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+<div class="theme-info">
+  <div class="powered-by"></div>
+  <span class="post-count">博客全站共70.1k字</span>
+</div>
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/canvas-nest/canvas-nest.min.js"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.4"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+  <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+  <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+  <script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+   <script type="text/javascript">
+        var gitalk = new Gitalk({
+          clientID: '5e5c6074ea6483a9380d',
+          clientSecret: 'd16d85928f70d31702f591a6ba8c47b3b8fe432c',
+          repo: 'YiHuaXie.github.io',
+          owner: 'YiHuaXie',
+          admin: ['YiHuaXie'],
+          id: md5(location.pathname),
+         labels: 'gitalk'.split(',').filter(l => l),
+          perPage: 15,
+          pagerDirection: 'last',
+          createIssueManually: false,
+          distractionFreeMode: true
+        })
+        gitalk.render('gitalk-container')           
+       </script>
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
